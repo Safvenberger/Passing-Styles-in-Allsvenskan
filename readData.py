@@ -23,7 +23,7 @@ def read_event_stream(league: str, year: int,
     league : str
         The name of the league (Allsvenskan/Superettan/Division1).
     year : int
-        The year the season was played in (2015-2021).
+        The year the season was played in.
     only_meta : bool, default is False.
         If only the metadata from each match should be returned.
 
@@ -203,7 +203,6 @@ def sync_player_names(remap_names: DataFrame, df_to_remp: DataFrame) -> DataFram
    
     return df_copy
     
-
 
 def compute_minutes_played(league: str, year: int, remap_names: DataFrame,
                            min_minutes_played: int=300) -> DataFrame:
