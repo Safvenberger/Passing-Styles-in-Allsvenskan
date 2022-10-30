@@ -85,6 +85,10 @@ def visualize_pca(all_passing_adjusted_per_90_scaled: DataFrame,
     # Specify the boundaries of the y axis
     ax.set_ylim(0, 1)
 
+    # Save figure
+    plt.tight_layout()
+    plt.savefig("../Figures/pca_explained.png", dpi=300)
+    
 
 def visualize_pca_loadings(all_passing_adjusted_per_90_scaled: DataFrame, 
                            all_passing_adjusted_per_90: DataFrame) -> None:
@@ -130,6 +134,10 @@ def visualize_pca_loadings(all_passing_adjusted_per_90_scaled: DataFrame,
     
     # Specify font size for the colorbar
     cbar.ax.tick_params(labelsize=16)
+    
+    # Save figure
+    plt.tight_layout()
+    plt.savefig("../Figures/pca_loadings.png", dpi=300)
     
 
 def visualize_number_of_clusters(pca_data: DataFrame) -> None:
@@ -177,6 +185,10 @@ def visualize_number_of_clusters(pca_data: DataFrame) -> None:
     # Specify axis labels
     ax.set_xlabel("Number of clusters", fontsize=14)
     ax.set_ylabel("Silhouette score", fontsize=14)
+    
+    # Save figure
+    plt.tight_layout()
+    plt.savefig("../Figures/number_of_clusters.png", dpi=300)
     
     
 def parallel_analysis(input_data: np.array, iterations: int=100, 
@@ -231,7 +243,7 @@ def parallel_analysis(input_data: np.array, iterations: int=100,
     simulated_eigenvalues = np.zeros((iterations, p))
 
     # Loop over the set of iterations
-    for k in tqdm(range(iterations)):
+    for k in tqdm(range(iterations), desc="Performing parallel analysis..."):
         # Sample random a set of (n x p) observations from a standard normal distribution 
         rnd_normal = np.random.normal(size=(n, p))
 
@@ -298,8 +310,12 @@ def parallel_analysis(input_data: np.array, iterations: int=100,
         # Set the axis tick labels to be 1 higher
         ax.set_xticklabels([i + 1 for i in ticks])
         
+        # Save figure
+        plt.tight_layout()
+        plt.savefig("../Figures/parallel_analysis.png", dpi=300)
+        
         # Show plot
         plt.show()  
-
+        
     return retained, adj_eigenvalues
 

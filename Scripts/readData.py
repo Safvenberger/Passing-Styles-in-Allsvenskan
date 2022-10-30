@@ -37,7 +37,7 @@ def read_event_stream(league: str, year: int,
     """
 
     # Relative path to the data
-    path = f"{league}, {year}/"
+    path = f"../{league}, {year}/"
     
     # List all matches for a given competition
     matches = os.listdir(path)
@@ -229,7 +229,7 @@ def compute_minutes_played(league: str, year: int, remap_names: DataFrame,
 
     """       
     # Load minutes played
-    minutes = pd.read_json(f"{league}, {year}/{league}, {year}-players.json")
+    minutes = pd.read_json(f"../{league}, {year}/{league}, {year}-players.json")
     
     # Rename columns
     minutes.rename(columns={"name": "player"}, inplace=True)
