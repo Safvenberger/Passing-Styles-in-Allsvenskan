@@ -124,7 +124,8 @@ def visualize_pca_loadings(all_passing_adjusted_per_90_scaled: DataFrame,
     plt.figure(figsize=(12, 8))    
     
     # Plot the heatmap of loadings    
-    ax = sns.heatmap(loadings, cmap="RdYlGn")
+    ax = sns.heatmap(loadings, cmap="RdYlGn", vmin=-1, vmax=1,
+                     cbar_kws={"label": "PCA loading"})
 
     # Specfiy axis text size
     ax.tick_params(axis="both", labelsize=12)

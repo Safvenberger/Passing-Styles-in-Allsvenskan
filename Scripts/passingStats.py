@@ -212,7 +212,7 @@ def combine_possession_adjusted_and_minutes(passing_stats_possession_adjusted: D
     
     # Add the standardized metrics and combine with player name and team
     passing_per_90 = pd.concat([passing_possession_minutes.drop(variables, axis=1), 
-                                         pd.concat(passing_per_90, axis=1)], axis=1)
+                                pd.concat(passing_per_90, axis=1)], axis=1)
     
     # Combine possession adjusted corners with minutes played
     corners_per_90 = corners_possession_adjusted.merge(
@@ -251,7 +251,8 @@ def combine_possession_adjusted_and_minutes(passing_stats_possession_adjusted: D
     col_sums = all_passing_adjusted_per_90.sum(axis=0)
     
     # Drop all columns that only have 0 as a value
-    all_passing_adjusted_per_90.drop(col_sums[col_sums.eq(0)].index, axis=1, inplace=True)
+    all_passing_adjusted_per_90.drop(col_sums[col_sums.eq(0)].index, 
+                                     axis=1, inplace=True)
     
     return all_passing_adjusted_per_90
 

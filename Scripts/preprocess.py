@@ -97,6 +97,9 @@ def add_and_adjust_columns(merged_wide_events: DataFrame) -> DataFrame:
     mwe_copy["pass_into_box"] = mwe_copy.action_list.str.contains("into the box")
     mwe_copy["on_target"] = mwe_copy.action_list.str.contains("on target")
     
+    # Ensure all assists and key passes are successful
+    mwe_copy.loc[mwe_copy.assist | mwe_copy.key_pass, "result"] = 1
+    
     # Create an indicator if a foul was awarded a yellow/red card
     mwe_copy["yellow_card"] = mwe_copy.action_list.str.contains("Yellow")
     mwe_copy["red_card"] = mwe_copy.action_list.str.contains("Red")
