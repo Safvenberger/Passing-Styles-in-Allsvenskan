@@ -62,7 +62,7 @@ def visualize_position_distribution(all_passing_adjusted_per_90_scaled: DataFram
 
     # Specify the order of the axis in the barplot
     position_order = ["Goalkeeper", "Centre-Back", "Left-Back", "Right-Back",
-                      "Defensive Midfield", "Centre Midfield", "Attacking Midfield",
+                      "Defensive Midfield", "Central Midfield", "Attacking Midfield",
                       "Left Midfield", "Right Midfield", 
                       "Left Winger", "Right Winger", "Second Striker", 
                       "Centre-Forward"]
