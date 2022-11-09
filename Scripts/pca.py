@@ -192,7 +192,7 @@ def visualize_number_of_clusters(pca_data: DataFrame) -> None:
     plt.savefig("../Figures/number_of_clusters.png", dpi=300)
     
     
-def parallel_analysis(input_data: np.array, iterations: int=100, 
+def parallel_analysis(input_data: np.ndarray, iterations: int=100, 
                       centile: int=99, plot: bool=True) -> Tuple[int, np.array]:
     """
     Perform parallel analysis based on Horn (1965) and the improvements 
@@ -200,7 +200,7 @@ def parallel_analysis(input_data: np.array, iterations: int=100,
 
     Parameters
     ----------
-    input_data : np.array
+    input_data : np.ndarray
         The data on which the parallel analysis is based.
     iterations : int, optional
         The number of iterations to run for sampling. The default is 100.

@@ -1,0 +1,10 @@
+matplotlib
+numpy
+pandas
+plotly
+scikit-fuzzy
+scikit-learn
+scikit-learn-extra
+scipy
+seaborn
+tqdm
