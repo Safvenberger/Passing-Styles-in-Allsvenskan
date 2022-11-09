@@ -129,3 +129,6 @@ dmypy.json
 .pyre/
 .Rproj.user
 *.Rproj
+
+# Ignore all game .json files
+allsvenskan, 2021/*.json
