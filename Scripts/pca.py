@@ -6,6 +6,7 @@ import sys
 import numpy as np
 import pandas as pd
 from sklearn.decomposition import PCA
+from sklearn.preprocessing import scale 
 from sklearn.metrics import silhouette_score
 from sklearn_extra.cluster import KMedoids
 from tqdm import tqdm
@@ -13,10 +14,12 @@ import seaborn as sns
 import matplotlib.pyplot as plt   
 from typing import Tuple
 from pandera.typing import DataFrame
+import warnings
 
 
 def visualize_pca(all_passing_adjusted_per_90_scaled: DataFrame,
-                  all_passing_adjusted_per_90: DataFrame) -> None:
+                  all_passing_adjusted_per_90: DataFrame,
+                  team: bool=False) -> None:
     """
     Visualize the explained variance obtained from PCA.
 
@@ -28,18 +31,28 @@ def visualize_pca(all_passing_adjusted_per_90_scaled: DataFrame,
     all_passing_adjusted_per_90 : DataFrame
         All passing events, standardized by minutes played, and possession adjusted
         per 90 minutes.
-
+    team : bool
+        If the passing statistics should be per team (True) or player (False).
+        
     Returns
     -------
     None. Instead a plot is created.
 
     """
     
+    # Specify the figure suffix
+    fig_suffix = ""
+
+    # Figure suffix for team
+    if team:
+        fig_suffix = "_team"
+        
     # Create a PCA object for selecting the components
     pca = PCA().fit(all_passing_adjusted_per_90_scaled)
 
-    # Find the number of columns, i.e., features    
-    nr_columns = len(all_passing_adjusted_per_90.columns)
+    # Find the number of components
+    nr_components = np.amin((len(all_passing_adjusted_per_90.columns),
+                             len(all_passing_adjusted_per_90)))
     
     # Initialize figure
     plt.figure(figsize=(12,8))
@@ -47,7 +60,7 @@ def visualize_pca(all_passing_adjusted_per_90_scaled: DataFrame,
     # Create a data frame for plotting
     explained_variance = pd.DataFrame(
         data=np.around(pca.explained_variance_ratio_, 3),
-        index=[f'PC{i}' for i in range(1, nr_columns+1)],
+        index=[f'PC{i}' for i in range(1, nr_components+1)],
         columns=["ExplainedVariance"]).reset_index().rename(columns={"index": "PC"})
     
     # Compute the cumulative explained variance
@@ -87,11 +100,12 @@ def visualize_pca(all_passing_adjusted_per_90_scaled: DataFrame,
 
     # Save figure
     plt.tight_layout()
-    plt.savefig("../Figures/pca_explained.png", dpi=300)
+    plt.savefig(f"../Figures/pca_explained{fig_suffix}.png", dpi=300)
     
 
 def visualize_pca_loadings(all_passing_adjusted_per_90_scaled: DataFrame, 
-                           all_passing_adjusted_per_90: DataFrame) -> None:
+                           all_passing_adjusted_per_90: DataFrame,
+                           team: bool=False) -> None:
     """
     Visualize the loadings of each variable on the principal components
 
@@ -103,20 +117,33 @@ def visualize_pca_loadings(all_passing_adjusted_per_90_scaled: DataFrame,
     all_passing_adjusted_per_90 : DataFrame
         All passing events, standardized by minutes played, and possession adjusted 
         per 90 minutes.
-
+    team : bool
+        If the passing statistics should be per team (True) or player (False).
+        
     Returns
     -------
     None. Instead a plot is created.
 
     """
     
+    # Specify the figure suffix
+    fig_suffix = ""
+
+    # Figure suffix for team
+    if team:
+        fig_suffix = "_team"
+        
     # Create a new PCA object with the desired amount of components
     pca = PCA().fit(all_passing_adjusted_per_90_scaled)
+    
+    # Find the number of components
+    nr_components = np.amin((len(all_passing_adjusted_per_90.columns),
+                             len(all_passing_adjusted_per_90)))
     
     # Create a data frame containing the PC loadings
     loadings = pd.DataFrame(
        data=pca.components_.T * np.sqrt(pca.explained_variance_), 
-       columns=[f'PC{i}' for i in range(1, len(all_passing_adjusted_per_90.columns)+1)],
+       columns=[f'PC{i}' for i in range(1, nr_components+1)],
        index=all_passing_adjusted_per_90.columns
      )   
 
@@ -138,10 +165,11 @@ def visualize_pca_loadings(all_passing_adjusted_per_90_scaled: DataFrame,
     
     # Save figure
     plt.tight_layout()
-    plt.savefig("../Figures/pca_loadings.png", dpi=300)
+    plt.savefig(f"../Figures/pca_loadings{fig_suffix}.png", dpi=300)
     
 
-def visualize_number_of_clusters(pca_data: DataFrame) -> None:
+def visualize_number_of_clusters(pca_data: DataFrame,
+                                 team: bool=False) -> None:
     """
     Visualize the relationship between the number of clusters and cluster 
     tightness via Silhouette score. A higher score indicates more distinct clusters.
@@ -150,17 +178,27 @@ def visualize_number_of_clusters(pca_data: DataFrame) -> None:
     ----------
     pca_data : DataFrame
         The data projected onto the PCA bases.
+    team : bool
+        If the passing statistics should be per team (True) or player (False).
 
     Returns
     -------
     None. Instead a plot is created.
 
     """
-    # Initialize an empty array for storing silhouette scores
-    silhouette = np.zeros((19, 2))
     
-    # Examine k = 2, ..., 20
-    for k in range(2, 21):
+    # Specify the figure suffix
+    fig_suffix = ""
+
+    # Figure suffix for team
+    if team:
+        fig_suffix = "_team"
+        
+    # Initialize an empty array for storing silhouette scores
+    silhouette = np.zeros((14, 2))
+    
+    # Examine k = 2, ..., 15
+    for k in range(2, 16):
         # Compute PAM on the PCA data
         k_medoids = KMedoids(n_clusters=k, random_state=0).fit(pca_data)
         
@@ -189,11 +227,11 @@ def visualize_number_of_clusters(pca_data: DataFrame) -> None:
     
     # Save figure
     plt.tight_layout()
-    plt.savefig("../Figures/number_of_clusters.png", dpi=300)
+    plt.savefig(f"../Figures/number_of_clusters{fig_suffix}.png", dpi=300)
     
     
-def parallel_analysis(input_data: np.ndarray, iterations: int=100, 
-                      centile: int=99, plot: bool=True) -> Tuple[int, np.array]:
+def parallel_analysis(input_data: np.ndarray, iterations: int=100, centile: int=99, 
+                      plot: bool=True, team: bool=False) -> Tuple[int, np.array]:
     """
     Perform parallel analysis based on Horn (1965) and the improvements 
     suggested by Glorfeld (1995) to select the number of components in PCA.
@@ -210,7 +248,9 @@ def parallel_analysis(input_data: np.ndarray, iterations: int=100,
         The default is 99.
     plot : bool, optional
         If a plot should be created. The default is True.
-
+    team : bool
+        If the passing statistics should be per team (True) or player (False).
+        
     Returns
     -------
     retained : int
@@ -228,11 +268,25 @@ def parallel_analysis(input_data: np.ndarray, iterations: int=100,
     Educational and Psychological Measurement, 55(3), 377–393. 
 
     """
+
+    # Specify the figure suffix
+    fig_suffix = ""
+
+    # Figure suffix for team
+    if team:
+        fig_suffix = "_team"
+        
     # Set seed for reproducible results
     np.random.seed(0)
     
     # Get the number of observations (n) and variables (p)
     n, p = input_data.shape
+    
+    # Find the minimum of n and p
+    min_dim = np.amin((n, p))
+    
+    if n < p:
+        warnings.warn("The number of observations is less than the number of variables")
     
     # Compute the correlation matrix of variables from the data
     corr_matrix = np.corrcoef(input_data, rowvar=False)
@@ -259,11 +313,14 @@ def parallel_analysis(input_data: np.ndarray, iterations: int=100,
 
     # If the centile method should be used        
     if centile > 0 and centile < 100:
-        rnd_ev = np.quantile(simulated_eigenvalues, centile/100, axis=0)
+        rnd_ev = np.quantile(simulated_eigenvalues, centile/100, axis=0)[:min_dim]
     elif centile == 0:
-        rnd_ev = np.mean(simulated_eigenvalues, axis=0)
+        rnd_ev = np.mean(simulated_eigenvalues, axis=0)[:min_dim]
     else: 
         sys.exit("Centile need to be between 0 and 99.")
+
+    # Keep the first min_dim eigenvalues, in the case n < p 
+    eigenvalues = eigenvalues[:min_dim]
 
     # Compute bias for the random eigenvalues
     bias = rnd_ev - 1
@@ -313,10 +370,57 @@ def parallel_analysis(input_data: np.ndarray, iterations: int=100,
         
         # Save figure
         plt.tight_layout()
-        plt.savefig("../Figures/parallel_analysis.png", dpi=300)
+        plt.savefig(f"../Figures/parallel_analysis{fig_suffix}.png", dpi=300)
         
         # Show plot
         plt.show()  
         
     return retained, adj_eigenvalues
 
+
+def fit_pca(all_passing_adjusted_per_90: DataFrame, 
+            team: bool=False) -> Tuple[DataFrame, DataFrame, DataFrame]:
+    """
+    Fit principal component analysis to the data.
+
+    Parameters
+    ----------
+    all_passing_adjusted_per_90_scaled :
+        All passing events, standardized by minutes played, possession adjusted 
+        and standardized per 90 minutes.
+    team : bool
+        If the passing statistics should be per team (True) or player (False).
+        
+    Returns
+    -------
+    pca_data : DataFrame
+        The data projected onto the PCA bases.
+    all_passing_adjusted_per_90 : DataFrame
+        All passing events, standardized by minutes played, and possession adjusted
+        per 90 minutes.
+
+    """
+    
+    # Standardize the data by subtracting the mean and dividing by variance
+    all_passing_adjusted_per_90_scaled = scale(all_passing_adjusted_per_90)
+    
+    # Visualize the principal components
+    visualize_pca(all_passing_adjusted_per_90_scaled,
+                  all_passing_adjusted_per_90, team=team)
+
+    # Visualize the PCA loadings per component
+    visualize_pca_loadings(all_passing_adjusted_per_90_scaled, 
+                           all_passing_adjusted_per_90, team=team)    
+    
+    # Use parallel analysis to determine how many components to keep
+    retained, _ = parallel_analysis(input_data=all_passing_adjusted_per_90_scaled, 
+                                    iterations=10000, centile=99, plot=True, team=team)
+
+    # Create a new PCA object with the desired amount of components and 
+    # project the original data onto the principal components
+    pca_data = PCA(n_components=retained).fit_transform(all_passing_adjusted_per_90_scaled)
+
+    # Visualize which k should be chosen as the number of clusters
+    visualize_number_of_clusters(pca_data, team=team)
+
+    return pca_data, all_passing_adjusted_per_90_scaled
