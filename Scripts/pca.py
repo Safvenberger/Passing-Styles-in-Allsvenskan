@@ -157,6 +157,9 @@ def visualize_pca_loadings(all_passing_adjusted_per_90_scaled: DataFrame,
     # Specfiy axis text size
     ax.tick_params(axis="both", labelsize=12)
 
+    # Rotate x-axis ticks
+    ax.tick_params(axis="x", rotation=90)
+
     # Get the colorbar
     cbar = ax.collections[0].colorbar
     
@@ -421,6 +424,6 @@ def fit_pca(all_passing_adjusted_per_90: DataFrame,
     pca_data = PCA(n_components=retained).fit_transform(all_passing_adjusted_per_90_scaled)
 
     # Visualize which k should be chosen as the number of clusters
-    visualize_number_of_clusters(pca_data, team=team)
+    visualize_number_of_clusters(pca_data, team=False)
 
     return pca_data, all_passing_adjusted_per_90_scaled

@@ -31,7 +31,7 @@ if __name__ == "__main__":
     pca_player_data, player_passing_per_90_scaled = fit_pca(player_passing_per_90,
                                                             team=False)
     
-    # Fit the PCA for team
+    # Fit the PCA for teams
     pca_team_data, team_passing_scaled = fit_pca(team_passing,
                                                  team=True)
     
@@ -44,5 +44,5 @@ if __name__ == "__main__":
 
     # Create a hierarchical clustering of teams
     fit_team_cluster(pca_team_data, team_passing)
-     
+
     
