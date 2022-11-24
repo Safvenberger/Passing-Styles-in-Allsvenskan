@@ -11,6 +11,7 @@ from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 import seaborn as sns
 from plotly.offline import plot
 import plotly.graph_objects as go
+from typing import List, Tuple
 from pandera.typing import DataFrame
 
 
@@ -371,6 +372,8 @@ def getImage(path: str):
     """
     From a given path, read an image file.
 
+    Source: https://fcpython.com/visualisation/creating-scatter-plots-with-club-logos-in-python
+    
     Parameters
     ----------
     path : str
@@ -384,8 +387,285 @@ def getImage(path: str):
     return OffsetImage(plt.imread(path), zoom=.03, alpha = 1)
 
 
+def get_team_badges(team_passing: DataFrame, tree: dict, ax) -> DataFrame:
+    """
+    Create a data frame with the paths to an image of each team's badge.
+
+    Parameters
+    ----------
+    team_passing : DataFrame
+        The passing statistics per team.
+    tree : dict
+        A dict as returned by shc.dendrogram().
+    ax : matplotlib.axes._subplots.AxesSubplot
+        Matplotlib figure axes.
+
+    Returns
+    -------
+    team_badge_data : DataFrame
+        Data frame with information over team name, badge path, and axis position.
+
+    """
+     # Create a data frame to contain the path to each team's badge icon
+    team_badge_data = pd.DataFrame(team_passing.index)
+    team_badge_data["path"] = team_badge_data.apply(
+        lambda x: f"../Badges/{x.team}.png", axis=1)    
+    
+    # Extract the leaf of each team
+    team_leaf = pd.DataFrame.from_dict(
+        {team:leaf for team, leaf in zip(tree["ivl"], tree["leaves"])}, 
+        orient="index", columns=["leaf"]).reset_index().rename(
+        columns={"index": "team"}).reset_index()
+    
+    # Combine team badge path and leaf in the plot
+    team_badge_data = team_badge_data.merge(team_leaf, on="team").sort_values("index")
+
+    # Get the axis tick position
+    team_badge_data["position"] = [i.get_position()[1] for i 
+                                   in ax.get_yticklabels()]   
+
+    return team_badge_data   
+          
+
+def plot_tree(tree: dict, team_badge_data: DataFrame, pos=None, invert: bool=True) -> None:
+    """
+    Plot a tree or a subset of a given tree.
+    
+    Source: https://stackoverflow.com/questions/16883412/how-do-i-get-the-subtrees-of-dendrogram-made-by-scipy-cluster-hierarchy
+
+    Parameters
+    ----------
+    tree : dict
+        A dict as returned by shc.dendrogram().
+    pos : iterable, optional
+        If specified, a range of indices to plot. The default is None.
+    invert : bool
+        If the x and y-axis should be inverted.
+
+    Returns
+    -------
+    None. Instead a set of figures are created.
+
+    """
+    
+    # Initialize a figure    
+    fig, ax = plt.subplots(figsize=(12, 8))       
+
+    # Get the coordinates from the dendrogram
+    icoord = np.array(tree["icoord"])
+    dcoord = np.array(tree["dcoord"])
+    
+    # Get the list of colors from the dendrogram
+    color_list = np.array(tree["color_list"])
+    
+    # Find the order of smallest to largest distance
+    order = np.take(dcoord.argsort(axis=0), 2, axis=1)
+    
+    # Select the array elements as per the defined order
+    icoord = icoord[order]
+    dcoord = dcoord[order]
+    color_list = color_list[order]
+    
+    # Determine the boundaries for the axes 
+    xmin, xmax = icoord.min(), icoord.max()
+    ymin, ymax = dcoord.min(), dcoord.max()
+    
+    # If a subset of the dendrogram is to be plotted
+    if pos:
+        # Get the corresponding position from the tree to grow by smallest => largest
+        # pos_idx = [tree["leaves"].index(i) for i in list(pos)]
+        # pos_idx = tree["leaves"].index(list(pos))
+        
+        # Get the coordinates of the subset
+        icoord = icoord[pos]
+        dcoord = dcoord[pos]
+        
+        # Get the color(s) of the subset
+        color_list = color_list[pos]
+        
+    # Create the plot
+    for xs, ys, color in zip(icoord, dcoord, color_list):
+        # If the x and y-axis should be inverted
+        if invert:
+            ax.plot(ys, xs, color)
+        else:
+            ax.plot(xs, ys, color)
+        
+    # Add the team logo for each leaf
+    for index, row in team_badge_data.iterrows():
+        ab = AnnotationBbox(getImage(row["path"]), (-0.5, row["position"]), 
+                            frameon=False, annotation_clip=False)
+        ax.add_artist(ab)
+    
+    # If the axes should be inverted
+    if invert:
+        # Specify plot limits
+        ax.set_ylim(xmin-10, xmax + 0.1*abs(xmax))
+        ax.set_xlim(ymin, ymax + 0.1*abs(ymax))
+                
+        # Make the y-axis ticks white in color 
+        ax.tick_params(axis="y", colors="white")
+        
+    else:
+        # Specify plot limits
+        ax.set_xlim(xmin-10, xmax + 0.1*abs(xmax))
+        ax.set_ylim(ymin, ymax + 0.1*abs(ymax))
+                        
+        # Make the y-axis ticks white in color 
+        ax.tick_params(axis="y", colors="white", rotation=80)
+        
+    # Save figure
+    plt.tight_layout()
+    plt.savefig(f"../Figures/TeamClusterIterative/hiearchical_cluster_team_iteration{pos[-1]}.png", 
+                dpi=300)     
+        
+    # Show plot
+    plt.show()
+
+
+def color_links(link_colors: List, linkage: np.ndarray, n: int, 
+                link: Tuple, color: str) -> List:
+    """
+    Update the color of a given link.
+
+    Parameters
+    ----------
+    link_colors : List
+        A list of colors for each link.
+    linkage : np.ndarray
+        A hiearchical linkage as returned by shc.linkage().
+    n : int
+        The length of the input data.
+    link : Tuple
+        A tuple specifying the link to color.
+    color : str
+        The color to use for the link.
+
+    Returns
+    -------
+    link_colors : List
+        An updated list of colors.
+
+    """
+
+    # Specify link you want to have highlighted
+    link_highlight = link
+    
+    # Find index in clustering where first two columns are equal to link_highlight. 
+    index_highlight = np.where((linkage[:, 0] == link_highlight[0]) * 
+                               (linkage[:, 1] == link_highlight[1]))[0][0]
+    
+    # Index in color_list of desired link is index from clustering + length of points
+    link_colors[index_highlight + n] = color
+    
+    return link_colors
+
+
+def color_cluster(linkage: np.ndarray, team_passing: DataFrame, 
+                  color_list: List, n: int, threshold: float) -> List:
+    """
+    Color all links belonging to a specific cluster.
+
+    Parameters
+    ----------
+    linkage : np.ndarray
+        A hiearchical linkage as returned by shc.linkage().
+    team_passing : DataFrame
+        The passing statistics per team.
+    color_list : List
+        A List of colors to use for coloring the lings.
+    n : int
+        The length of the input data.
+    threshold : float
+        The distance used for creating clusters.
+
+    Returns
+    -------
+    link_colors : list
+        A list of colors for each link.
+
+    """
+            
+    # Create a numpy array of [team, cluster, final standing]    
+    team_clusters = np.vstack([team_passing.index.to_numpy(), 
+                               shc.fcluster(linkage[:, :4], 
+                                            t=threshold, criterion="distance"),
+                               np.array([2, 12, 13, 3, 14, 5, 4, 8, 7, 11,
+                                         6, 1, 9, 10, 15, 16])]).T
+    
+    # Initialize the link_colors list with gray
+    link_colors = ["#BBBBBB"] * (2 * n - 1)
+
+    # Loop over all unique clusters that have been formed
+    for cluster in np.unique(team_clusters[:, 1]):
+        # Find the index of all the cluster observations
+        team_link_idx = np.where(team_clusters[:, 1] == cluster)[0]
+        
+        # Create empty set to contain the links
+        link_idx_set = set()
+        all_nodes = set()
+
+        # Default value
+        break_cond=False
+
+        while True:
+            # Loop over all link indexes between teams
+            for team_link in team_link_idx:
+                # Find the row index of the team link
+                link_idx = np.where((linkage[:, 0] == team_link) |
+                                    (linkage[:, 1] == team_link)
+                                    )[0]
+                
+                # Get the link distance
+                link_dist = linkage[link_idx, 2][0]
+                
+                if link_dist < threshold:
+                    # Add the link index to a list
+                    link_idx_set.add(link_idx[0])
+                else:
+                    # Distance too large -> break the loop
+                    break_cond=True
+            
+            # Exit the loop
+            if break_cond:
+                break
+            
+            # Add the nodes to the "master" set
+            all_nodes = all_nodes.union(link_idx_set)
+
+            # Initialize an empty set for the nodes of the parent
+            parent_set = set()
+            
+            # Loop over all 
+            for link_idx in link_idx_set:
+                # Get the distance and parent of a given link
+                link_dist, link_parent = linkage[link_idx, [2, 4]]
+                
+                if link_dist < threshold:
+                    # Add the link parent to the parent set if the distance is 
+                    # less than the required disance
+                    parent_set.add(int(link_parent))
+            
+            # Update the team link set
+            team_link_idx = parent_set
+                
+        # Get the color for the cluster
+        link_color = color_list[cluster-1]
+        
+        # Loop over all link indexes among the nodes
+        for link_idx in all_nodes:
+            # Update the link color list
+            link_colors = color_links(link_colors, linkage=linkage, n=n, 
+                                      link=tuple(linkage[link_idx, :2]), 
+                                      color=link_color)    
+
+    return link_colors
+
+
 def fit_team_cluster(pca_team_data: DataFrame, 
-                     team_passing: DataFrame):
+                     team_passing: DataFrame,
+                     plot_iterative_tree: bool=False,
+                     threshold: float=None):
     """
     Fit a hierarchical clustering of teams.
 
@@ -395,25 +675,50 @@ def fit_team_cluster(pca_team_data: DataFrame,
         The data projected onto the PCA bases.
     team_passing : DataFrame
         The passing statistics per team.
-
+    plot_iterative_tree : bool
+        If a series of plots should be made for the "growing" process of the dendrogram.
+    threshold : float
+        The distance used for creating clusters.
+    
     Returns
     -------
     None. Instead, a figure is created and saved.
 
     """
     
+    # Save the length of the data
+    n = len(pca_team_data)
+    
     # Create a hierarchical clustering of teams based on standardized passing statistics
-    team_clusters = shc.linkage(pca_team_data, method="ward", 
-                                metric="euclidean", optimal_ordering=True)
+    team_linkage = shc.linkage(pca_team_data, method="ward", 
+                               metric="euclidean", optimal_ordering=True)
+    
+    # Add a new column to signify the new links
+    team_linkage = np.hstack((team_linkage, 
+                              np.array([range(n, 2 * n - 1)]).T))
     
     # Initialize a figure
     fig, ax = plt.subplots(figsize=(12, 8))       
-    
+        
+    # Specify a color list of [red, orange, yellow, blue, cyan, teal, green]
+    color_list = ["#CC3311", "#EE7733", "#DDAA33", "#0077BB", "#33BBEE", 
+                  "#009988", "#117733"]
+
+    if threshold is not None:
+        # Create the colors for each cluster
+        link_colors = color_cluster(team_linkage, team_passing, color_list, n, threshold)
+        
+        # Save the function for coloring the links
+        link_color_func = lambda k: link_colors[k]
+    else: 
+        link_color_func = None
+        
     # Change the linewidth of the dendrogram
     with plt.rc_context({"lines.linewidth": 2.5}):
         # Create a dendrogram showing team clustering
-        s = shc.dendrogram(Z=team_clusters, orientation="right",
-                           labels=team_passing.index)
+        tree = shc.dendrogram(Z=team_linkage[:, :4], orientation="right",
+                              labels=team_passing.index,
+                              link_color_func=link_color_func)
     
     # Specify axis labels
     ax.set_xlabel("Ward distance", fontsize=14)
@@ -422,23 +727,8 @@ def fit_team_cluster(pca_team_data: DataFrame,
     # Make the y-axis ticks white in color 
     ax.tick_params(axis="y", colors="white", rotation=80)
     
-    # Create a data frame to contain the path to each team's badge icon
-    team_badge_data = pd.DataFrame(team_passing.index)
-    team_badge_data["path"] = team_badge_data.apply(
-        lambda x: f"../Badges/{x.team}.png", axis=1)    
-    
-    # Extract the leaf of each team
-    team_leaf = pd.DataFrame.from_dict(
-        {team:leaf for team, leaf in zip(s["ivl"], s["leaves"])}, 
-    orient="index", columns=["leaf"]).reset_index().rename(
-        columns={"index": "team"}).reset_index()
-    
-    # Combine team badge path and leaf in the plot
-    team_badge_data = team_badge_data.merge(team_leaf, on="team").sort_values("index")
-
-    # Get the axis tick position
-    team_badge_data["position"] = [i.get_position()[1] for i 
-                                   in ax.get_yticklabels()]                
+    # Get the team badges and their relative path
+    team_badge_data = get_team_badges(team_passing, tree, ax)
                      
     # Add the team logo for each leaf
     for index, row in team_badge_data.iterrows():
@@ -452,4 +742,12 @@ def fit_team_cluster(pca_team_data: DataFrame,
         
     # Plot the figure    
     plt.show()
+    
+    # If a iterative tree is to be grown
+    if plot_iterative_tree:
+        # Loop over all links
+        for i in range(1, len(team_badge_data)):
+            # Plot each subtree
+            plot_tree(tree, team_badge_data, pos=range(i))
 
+    
