@@ -4,6 +4,7 @@
 
 import pandas as pd
 import numpy as np
+from sklearn.preprocessing import scale
 from sklearn_extra.cluster import KMedoids
 import scipy.cluster.hierarchy as shc
 import matplotlib.pyplot as plt
@@ -411,116 +412,25 @@ def get_team_badges(team_passing: DataFrame, tree: dict, ax) -> DataFrame:
     team_badge_data["path"] = team_badge_data.apply(
         lambda x: f"../Badges/{x.team}.png", axis=1)    
     
-    # Extract the leaf of each team
-    team_leaf = pd.DataFrame.from_dict(
-        {team:leaf for team, leaf in zip(tree["ivl"], tree["leaves"])}, 
-        orient="index", columns=["leaf"]).reset_index().rename(
-        columns={"index": "team"}).reset_index()
+    if tree is not None:
+        # Extract the leaf of each team
+        team_leaf = pd.DataFrame.from_dict(
+            {team:leaf for team, leaf in zip(tree["ivl"], tree["leaves"])}, 
+            orient="index", columns=["leaf"]).reset_index().rename(
+            columns={"index": "team"}).reset_index()
+        
+        # Combine team badge path and leaf in the plot
+        team_badge_data = team_badge_data.merge(team_leaf, on="team").sort_values("index")
     
-    # Combine team badge path and leaf in the plot
-    team_badge_data = team_badge_data.merge(team_leaf, on="team").sort_values("index")
-
-    # Get the axis tick position
-    team_badge_data["position"] = [i.get_position()[1] for i 
-                                   in ax.get_yticklabels()]   
+        # Get the axis tick position
+        team_badge_data["position"] = [i.get_position()[1] for i 
+                                       in ax.get_yticklabels()] 
+    else:
+        # Get the axis tick position
+        team_badge_data["position"] = [i.get_position()[0] for i 
+                                       in ax.get_xticklabels()] 
 
     return team_badge_data   
-          
-
-def plot_tree(tree: dict, team_badge_data: DataFrame, pos=None, invert: bool=True) -> None:
-    """
-    Plot a tree or a subset of a given tree.
-    
-    Source: https://stackoverflow.com/questions/16883412/how-do-i-get-the-subtrees-of-dendrogram-made-by-scipy-cluster-hierarchy
-
-    Parameters
-    ----------
-    tree : dict
-        A dict as returned by shc.dendrogram().
-    pos : iterable, optional
-        If specified, a range of indices to plot. The default is None.
-    invert : bool
-        If the x and y-axis should be inverted.
-
-    Returns
-    -------
-    None. Instead a set of figures are created.
-
-    """
-    
-    # Initialize a figure    
-    fig, ax = plt.subplots(figsize=(12, 8))       
-
-    # Get the coordinates from the dendrogram
-    icoord = np.array(tree["icoord"])
-    dcoord = np.array(tree["dcoord"])
-    
-    # Get the list of colors from the dendrogram
-    color_list = np.array(tree["color_list"])
-    
-    # Find the order of smallest to largest distance
-    order = np.take(dcoord.argsort(axis=0), 2, axis=1)
-    
-    # Select the array elements as per the defined order
-    icoord = icoord[order]
-    dcoord = dcoord[order]
-    color_list = color_list[order]
-    
-    # Determine the boundaries for the axes 
-    xmin, xmax = icoord.min(), icoord.max()
-    ymin, ymax = dcoord.min(), dcoord.max()
-    
-    # If a subset of the dendrogram is to be plotted
-    if pos:
-        # Get the corresponding position from the tree to grow by smallest => largest
-        # pos_idx = [tree["leaves"].index(i) for i in list(pos)]
-        # pos_idx = tree["leaves"].index(list(pos))
-        
-        # Get the coordinates of the subset
-        icoord = icoord[pos]
-        dcoord = dcoord[pos]
-        
-        # Get the color(s) of the subset
-        color_list = color_list[pos]
-        
-    # Create the plot
-    for xs, ys, color in zip(icoord, dcoord, color_list):
-        # If the x and y-axis should be inverted
-        if invert:
-            ax.plot(ys, xs, color)
-        else:
-            ax.plot(xs, ys, color)
-        
-    # Add the team logo for each leaf
-    for index, row in team_badge_data.iterrows():
-        ab = AnnotationBbox(getImage(row["path"]), (-0.5, row["position"]), 
-                            frameon=False, annotation_clip=False)
-        ax.add_artist(ab)
-    
-    # If the axes should be inverted
-    if invert:
-        # Specify plot limits
-        ax.set_ylim(xmin-10, xmax + 0.1*abs(xmax))
-        ax.set_xlim(ymin, ymax + 0.1*abs(ymax))
-                
-        # Make the y-axis ticks white in color 
-        ax.tick_params(axis="y", colors="white")
-        
-    else:
-        # Specify plot limits
-        ax.set_xlim(xmin-10, xmax + 0.1*abs(xmax))
-        ax.set_ylim(ymin, ymax + 0.1*abs(ymax))
-                        
-        # Make the y-axis ticks white in color 
-        ax.tick_params(axis="y", colors="white", rotation=80)
-        
-    # Save figure
-    plt.tight_layout()
-    plt.savefig(f"../Figures/TeamClusterIterative/hiearchical_cluster_team_iteration{pos[-1]}.png", 
-                dpi=300)     
-        
-    # Show plot
-    plt.show()
 
 
 def color_links(link_colors: List, linkage: np.ndarray, n: int, 
@@ -661,11 +571,130 @@ def color_cluster(linkage: np.ndarray, team_passing: DataFrame,
 
     return link_colors
 
+          
+def plot_tree(tree: dict, team_badge_data: DataFrame, pos=None, 
+              invert: bool=True, distance_threshold: float=None) -> None:
+    """
+    Plot a tree or a subset of a given tree.
+    
+    Source: https://stackoverflow.com/questions/16883412/how-do-i-get-the-subtrees-of-dendrogram-made-by-scipy-cluster-hierarchy
+
+    Parameters
+    ----------
+    tree : dict
+        A dict as returned by shc.dendrogram().
+    team_badge_data : DataFrame
+        Data frame with information over team name, badge path, and axis position.
+    pos : iterable, optional
+        If specified, a range of indices to plot. The default is None.
+    invert : bool
+        If the x and y-axis should be inverted.
+    distance_threshold : float
+        The distance threshold used for creating clusters.
+
+    Returns
+    -------
+    None. Instead a set of figures are created.
+
+    """
+    
+    # Initialize a figure    
+    fig, ax = plt.subplots(figsize=(12, 8))       
+
+    # Get the coordinates from the dendrogram
+    icoord = np.array(tree["icoord"])
+    dcoord = np.array(tree["dcoord"])
+    
+    # Get the list of colors from the dendrogram
+    color_list = np.array(tree["color_list"])
+    
+    # Find the order of smallest to largest distance
+    order = np.take(dcoord.argsort(axis=0), 2, axis=1)
+    
+    # Select the array elements as per the defined order
+    icoord = icoord[order]
+    dcoord = dcoord[order]
+    color_list = color_list[order]
+    
+    # Determine the boundaries for the axes 
+    xmin, xmax = icoord.min(), icoord.max()
+    ymin, ymax = dcoord.min(), dcoord.max()
+    
+    if distance_threshold is not None:
+        if invert:
+            ymax = distance_threshold
+        else:
+            xmax = distance_threshold
+        # Specify the figure suffix
+        fig_suffix = f"threshold_{distance_threshold}"
+    else:
+        # Specify the figure suffix
+        fig_suffix = ""
+    
+    # If a subset of the dendrogram is to be plotted
+    if pos:
+        # Get the coordinates of the subset
+        icoord = icoord[pos]
+        dcoord = dcoord[pos]
+        
+        # Get the color(s) of the subset
+        color_list = color_list[pos]
+        
+    # Create the plot
+    for xs, ys, color in zip(icoord, dcoord, color_list):
+        # If the x and y-axis should be inverted
+        if invert:
+            ax.plot(ys, xs, color)
+        else:
+            ax.plot(xs, ys, color)
+        
+    # Add the team logo for each leaf
+    for index, row in team_badge_data.iterrows():
+        ab = AnnotationBbox(getImage(row["path"]), (-20, row["position"]), 
+                            frameon=False, annotation_clip=False,
+                            xycoords=("axes points", "data"))
+        ax.add_artist(ab)
+    
+    # If the axes should be inverted
+    if invert:
+        # Specify plot limits
+        ax.set_ylim(xmin-10, xmax + 0.1*abs(xmax))
+        ax.set_xlim(ymin, ymax + 0.1*abs(ymax))
+                
+        # Make the y-axis ticks white in color 
+        ax.tick_params(axis="y", colors="white")
+        
+        # Specify axis labels
+        ax.set_xlabel("Distance", fontsize=14)
+        
+    else:
+        # Specify plot limits
+        ax.set_xlim(xmin-10, xmax + 0.1*abs(xmax))
+        ax.set_ylim(ymin, ymax + 0.1*abs(ymax))
+                        
+        # Make the y-axis ticks white in color 
+        ax.tick_params(axis="y", colors="white", rotation=80)
+        
+        # Specify axis labels
+        ax.set_ylabel("Distance", fontsize=14)
+                
+    # Set figure title
+    ax.set_title("Hierarchical clustering of team passing statistics")
+        
+    # Save figure
+    plt.tight_layout()
+    plt.savefig(f"../Figures/TeamClusterIterative/hiearchical_cluster_team_iteration_{fig_suffix}" +
+                f"_{pos[-1]}.png", 
+                dpi=300)     
+        
+    # Show plot
+    plt.show()
+
 
 def fit_team_cluster(pca_team_data: DataFrame, 
                      team_passing: DataFrame,
                      plot_iterative_tree: bool=False,
-                     threshold: float=None):
+                     threshold: float=None) -> np.ndarray:
     """
     Fit a hierarchical clustering of teams.
 
@@ -682,7 +711,8 @@ def fit_team_cluster(pca_team_data: DataFrame,
     
     Returns
     -------
-    None. Instead, a figure is created and saved.
+    team_linkage : np.ndarray
+        A hiearchical linkage as returned by shc.linkage().
 
     """
     
@@ -700,9 +730,18 @@ def fit_team_cluster(pca_team_data: DataFrame,
     # Initialize a figure
     fig, ax = plt.subplots(figsize=(12, 8))       
         
-    # Specify a color list of [red, orange, yellow, blue, cyan, teal, green]
-    color_list = ["#CC3311", "#EE7733", "#DDAA33", "#0077BB", "#33BBEE", 
-                  "#009988", "#117733"]
+    # Specify a list of colors
+    color_list = ["#762A83", # Purple
+                  "#0077BB", # Blue
+                  "#117733", # Green
+                  "#EEDD88", # Yellow
+                  "#EE7733", # Orange                  
+                  "#CC3311", # Red
+                  "#33BBEE", # Cyan
+                  "#FFAABB", # Pink
+                  "#555555", # Dark grey
+                  "#DDDDDD", # Pale grey
+                  ]
 
     if threshold is not None:
         # Create the colors for each cluster
@@ -710,8 +749,21 @@ def fit_team_cluster(pca_team_data: DataFrame,
         
         # Save the function for coloring the links
         link_color_func = lambda k: link_colors[k]
+        
+        # Keep only the links below the threshold
+        threshold_linkage = team_linkage[team_linkage[:, 2] < threshold]
+
+        # Specify the figure suffix
+        fig_suffix = f"_threshold{threshold}"
     else: 
+        # Default colors
         link_color_func = None
+        
+        # Specify the figure suffix
+        fig_suffix = ""
+        
+        # Set the same linkage array
+        threshold_linkage = team_linkage
         
     # Change the linewidth of the dendrogram
     with plt.rc_context({"lines.linewidth": 2.5}):
@@ -721,7 +773,7 @@ def fit_team_cluster(pca_team_data: DataFrame,
                               link_color_func=link_color_func)
     
     # Specify axis labels
-    ax.set_xlabel("Ward distance", fontsize=14)
+    ax.set_xlabel("Distance", fontsize=14)
     ax.set_title("Hierarchical clustering of team passing statistics")
     
     # Make the y-axis ticks white in color 
@@ -732,13 +784,14 @@ def fit_team_cluster(pca_team_data: DataFrame,
                      
     # Add the team logo for each leaf
     for index, row in team_badge_data.iterrows():
-        ab = AnnotationBbox(getImage(row["path"]), (-0.5, row["position"]), 
-                            frameon=False, annotation_clip=False)
+        ab = AnnotationBbox(getImage(row["path"]), (-20, row["position"]), 
+                            frameon=False, annotation_clip=False,
+                            xycoords=("axes points", "data"))
         ax.add_artist(ab)
     
     # Save figure
     plt.tight_layout()
-    plt.savefig("../Figures/hiearchical_cluster_team.png", dpi=300)
+    plt.savefig(f"../Figures/hiearchical_cluster_team{fig_suffix}.png", dpi=300)
         
     # Plot the figure    
     plt.show()
@@ -746,8 +799,246 @@ def fit_team_cluster(pca_team_data: DataFrame,
     # If a iterative tree is to be grown
     if plot_iterative_tree:
         # Loop over all links
-        for i in range(1, len(team_badge_data)):
+        for i in range(1, len(threshold_linkage)+1):
             # Plot each subtree
-            plot_tree(tree, team_badge_data, pos=range(i))
+            plot_tree(tree, team_badge_data, pos=range(i), invert=True,
+                      distance_threshold=threshold)
+            
+    return team_linkage
 
+
+def team_passing_heatmap(team_passing: DataFrame, team_passing_raw: DataFrame,
+                         linkage: np.ndarray, threshold: float=None, 
+                         heatmap_difference: bool=False) -> None:
+    """
+    Create heatmaps for differences between possession adjusted passing statistics
+    and raw counts, as well as for the clusters given by threshold.
+
+    Parameters
+    ----------
+    team_passing : DataFrame
+        The possesion adjusted passing statistics per team.
+    team_passing_raw : DataFrame
+        The original passing statistics per team.
+    linkage : np.ndarray
+        A hiearchical linkage as returned by shc.linkage().
+    threshold : float
+        The distance used for creating clusters.
+    heatmap_difference : bool
+        If the heatmap should visualize the difference between possesion adjusted
+        and raw counts (True) or possession adjusted passing statistics (False).
+
+    Returns
+    -------
+    None. Instead figures are created and saved.
+
+    """
+
+    if threshold is not None:
+        # Specify the figure suffix
+        fig_suffix = f"_threshold_{threshold}"
+    else: 
+        # Specify the figure suffix
+        fig_suffix = ""
     
+    # Create a numpy array of [team, cluster, final standing]    
+    team_clusters = np.vstack([team_passing.index.to_numpy(), 
+                               shc.fcluster(linkage[:, :4], 
+                                            t=threshold, criterion="distance"),
+                               np.array([2, 12, 13, 3, 14, 5, 4, 8, 7, 11,
+                                         6, 1, 9, 10, 15, 16])]).T
+    
+    # Get the order as given by each team's cluster 
+    cluster_sorting = np.lexsort((team_clusters[:, 2], team_clusters[:, 1]))
+    
+    # Compute the difference between posession adjusted and raw counts
+    team_passing_diff = team_passing - team_passing_raw
+            
+    if heatmap_difference:
+        data = team_passing_diff.copy()
+        fig_name = "../Figures/heatmap_team_passing_diff"
+        cbar_label = "Standardized difference of possession adjusted passing and raw counts"
+    else:
+        data = team_passing.copy()
+        fig_name = "../Figures/heatmap_team_passing"
+        cbar_label = "Standardized possession adjusted passing"
+    
+    # Create a data frame for scaled differences 
+    scaled_data = pd.DataFrame(scale(data), index=team_passing.index, 
+                               columns=team_passing.columns)
+    
+    # Find columns per pass length
+    long_pass = scaled_data.columns[scaled_data.columns.str.contains("Long pass")].to_list()
+    medium_pass = scaled_data.columns[scaled_data.columns.str.contains("Medium pass")].to_list()
+    short_pass = scaled_data.columns[scaled_data.columns.str.contains("Short pass")].to_list()
+    
+    # Reorder columns by pass length
+    scaled_data = scaled_data[long_pass + medium_pass + short_pass]
+    
+    # Change row order by cluster order
+    scaled_data = scaled_data.iloc[cluster_sorting]
+      
+    # Rename columns
+    scaled_data.columns = scaled_data.columns.str.replace("_", " - ").str.replace(
+        "success", "Success").str.replace("fail", "Fail").str.replace("[A-z]+ pass - ", "", regex=True)
+    
+    # Initialize a figure
+    fig, ax = plt.subplots(figsize=(12, 8))       
+        
+    # Create heatmap
+    sns.heatmap(scaled_data.T, cmap="RdYlGn", vmin=-3, vmax=3,
+                cbar_kws={"label": cbar_label})
+    
+    # Specify axis labels
+    ax.set_xlabel("", fontsize=14)
+        
+    # Specify x-axis ticks to be white (= hidden)
+    ax.tick_params(axis="x", colors="white", rotation=15)
+
+    # Get the team badges and their relative path
+    team_badge_data = get_team_badges(team_passing, tree=None, ax=ax)  
+    
+    # Get axis position values
+    badge_position = team_badge_data.position.values
+    
+    # Change row order by cluster order
+    team_badge_data = team_badge_data.iloc[cluster_sorting].reset_index(drop=True)
+      
+    # Update position values
+    team_badge_data["position"] = badge_position
+    
+    # Save cluster assignment in badge information
+    team_badge_data["cluster"] = team_clusters[cluster_sorting, 1]
+    
+    # Add the final position for each team
+    team_badge_data["tablePosition"] = team_clusters[cluster_sorting, 2]    
+    
+    # Add the team logo for each leaf
+    for index, row in team_badge_data.iterrows():
+        ab = AnnotationBbox(getImage(row["path"]), (row["position"], -20), 
+                            frameon=False, annotation_clip=False,
+                            xycoords=("data", "axes points"))
+        ax.add_artist(ab)
+    
+        # Add cluster label
+        ax.annotate(row.cluster, xy=(row["position"], 1.02),
+                    annotation_clip=False, horizontalalignment="center",
+                    xycoords=("data", "axes fraction"))
+        
+        # Add final standing
+        ax.annotate(f"#{row.tablePosition}", xy=(row["position"], -0.1),
+                    annotation_clip=False, horizontalalignment="center",
+                    xycoords=("data", "axes fraction"))
+    
+    # Add cluster number information
+    ax.annotate("Cluster number", xy=(0.5, 1.05), fontweight="bold",
+                annotation_clip=False, horizontalalignment="center",
+                xycoords=("axes fraction", "axes fraction"))
+    
+    # Add cluster number information
+    ax.annotate("Final position", xy=(-0.09, -0.1), fontweight="bold",
+                annotation_clip=False, horizontalalignment="center",
+                xycoords=("axes fraction", "axes fraction"))
+    
+    # Loop over all pass lengths
+    for idx, pass_length in zip((0, 0.95, 2.1), ["Short",  "Medium", "Long"]):
+        # Add passing length information
+        ax.annotate(f"{pass_length} passing", xy=(-0.33, 0.075 + (idx) * 0.33), 
+                    fontweight="bold", rotation=90, 
+                    annotation_clip=False, horizontalalignment="center",
+                    xycoords=("axes fraction", "axes fraction"))
+    
+    # Draw horizontal lines to signify different pass lengths
+    ax.hlines([14, 28], *ax.get_xlim(), colors=["black"])
+    
+    # Save figure
+    plt.tight_layout()
+    plt.savefig(f"{fig_name}{fig_suffix}.png", dpi=300)
+        
+    # # Create a data frame for scaled possession adjusted passing 
+    # scaled_passing_df = pd.DataFrame(scale(team_passing), index=team_passing.index, 
+    #                                  columns=team_passing.columns)
+    
+    # # Reorder columns by pass length
+    # scaled_passing_df = scaled_passing_df[long_pass + medium_pass + short_pass]
+    
+    # # Change row order by cluster order
+    # scaled_passing_df = scaled_passing_df.iloc[cluster_sorting]
+      
+    # # Rename columns
+    # scaled_passing_df.columns = scaled_passing_df.columns.str.replace("_", " - ").str.replace(
+    #     "success", "Success").str.replace("fail", "Fail").str.replace("[A-z]+ pass - ", "", regex=True)
+    
+    # # Initialize a figure
+    # fig, ax = plt.subplots(figsize=(12, 8))       
+        
+    # # Create heatmap
+    # sns.heatmap(scaled_passing_df.T, cmap="RdYlGn", vmin=-3, vmax=3,
+    #             cbar_kws={"label": cbar_label})
+    
+    # # Specify axis labels
+    # ax.set_xlabel("", fontsize=14)
+    
+    # # Specify x-axis ticks to be white (= hidden)
+    # ax.tick_params(axis="x", colors="white", rotation=15)
+
+    # # Get the team badges and their relative path
+    # team_badge_data = get_team_badges(team_passing, tree=None, ax=ax)  
+    
+    # # Get axis position values
+    # badge_position = team_badge_data.position.values
+    
+    # # Change row order by cluster order
+    # team_badge_data = team_badge_data.iloc[cluster_sorting].reset_index(drop=True)
+      
+    # # Update position values
+    # team_badge_data["position"] = badge_position
+    
+    # # Save cluster assignment in badge information
+    # team_badge_data["cluster"] = team_clusters[cluster_sorting, 1]
+    
+    # # Add the final position for each team
+    # team_badge_data["tablePosition"] = team_clusters[cluster_sorting, 2]    
+    
+    # # Add the team logo for each leaf
+    # for index, row in team_badge_data.iterrows():
+    #     ab = AnnotationBbox(getImage(row["path"]), (row["position"], -20), 
+    #                         frameon=False, annotation_clip=False,
+    #                         xycoords=("data", "axes points"))
+    #     ax.add_artist(ab)
+    
+    #     # Add cluster label
+    #     ax.annotate(row.cluster, xy=(row["position"], 1.02),
+    #                 annotation_clip=False, horizontalalignment="center",
+    #                 xycoords=("data", "axes fraction"))
+        
+    #     # Add final standing
+    #     ax.annotate(f"#{row.tablePosition}", xy=(row["position"], -0.1),
+    #                 annotation_clip=False, horizontalalignment="center",
+    #                 xycoords=("data", "axes fraction"))
+    
+    # # Add cluster number information
+    # ax.annotate("Cluster number", xy=(0.5, 1.05), fontweight="bold",
+    #             annotation_clip=False, horizontalalignment="center",
+    #             xycoords=("axes fraction", "axes fraction"))
+    
+    # # Add cluster number information
+    # ax.annotate("Final position", xy=(-0.09, -0.1), fontweight="bold",
+    #             annotation_clip=False, horizontalalignment="center",
+    #             xycoords=("axes fraction", "axes fraction"))
+    
+    # # Loop over all pass lengths
+    # for idx, pass_length in zip((0, 0.95, 2.1), ["Short",  "Medium", "Long"]):
+    #     # Add passing length information
+    #     ax.annotate(f"{pass_length} passing", xy=(-0.33, 0.075 + (idx) * 0.33), 
+    #                 fontweight="bold", rotation=90, 
+    #                 annotation_clip=False, horizontalalignment="center",
+    #                 xycoords=("axes fraction", "axes fraction"))
+    
+    # # Draw horizontal lines to signify different pass lengths
+    # ax.hlines([14, 28], *ax.get_xlim(), colors=["black"])
+        
+    # # Save figure
+    # plt.tight_layout()
+    # plt.savefig(f"../Figures/heatmap_team_passing{fig_suffix}.png", dpi=300)
+        

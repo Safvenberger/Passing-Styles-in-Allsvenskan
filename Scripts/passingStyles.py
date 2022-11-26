@@ -6,7 +6,7 @@ from preprocess import preprocess_data
 from passingStats import get_passing_data
 from pca import fit_pca
 from clustering import fit_player_cluster, interactive_player_clustering, \
-    fit_team_cluster
+    fit_team_cluster, team_passing_heatmap
 
 
 if __name__ == "__main__":
@@ -21,11 +21,15 @@ if __name__ == "__main__":
     
     # Get the passing data for players, adjusted per possession and time played  
     player_passing_per_90 = get_passing_data(merged_wide_events, minutes_played_season,
-                                             team=False)
+                                             team=False, possession_adjust=True)
     
     # Get the passing data for teams 
     team_passing = get_passing_data(merged_wide_events, minutes_played_season, 
-                                    team=True)
+                                    team=True, possession_adjust=True)
+    
+    # Get passing data for teams that is not possession adjusted
+    team_passing_raw = get_passing_data(merged_wide_events, minutes_played_season, 
+                                    team=True, possession_adjust=False)
         
     # Fit the PCA for players
     pca_player_data, player_passing_per_90_scaled = fit_pca(player_passing_per_90,
@@ -43,6 +47,16 @@ if __name__ == "__main__":
     interactive_player_clustering(plot_data)
 
     # Create a hierarchical clustering of teams
-    fit_team_cluster(pca_team_data, team_passing)
+    team_linkage = fit_team_cluster(pca_team_data, team_passing, plot_iterative_tree=False)
 
+    # Create a hierarchical clustering of teams for a subset
+    fit_team_cluster(pca_team_data, team_passing, plot_iterative_tree=True,
+                     threshold=5)
     
+    # Plot a heatmap of passing differences between possession adjusted and raw counts
+    team_passing_heatmap(team_passing, team_passing_raw, linkage=team_linkage,
+                         threshold=5, heatmap_difference=True)
+    
+    # Plot a heatmap of possession adjusted adjusted passing statistics
+    team_passing_heatmap(team_passing, team_passing_raw, linkage=team_linkage,
+                         threshold=5, heatmap_difference=False)
