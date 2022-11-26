@@ -4,7 +4,7 @@
 
 import pandas as pd
 import numpy as np
-from sklearn.preprocessing import scale
+from sklearn.preprocessing import MinMaxScaler
 from sklearn_extra.cluster import KMedoids
 import scipy.cluster.hierarchy as shc
 import matplotlib.pyplot as plt
@@ -864,8 +864,8 @@ def team_passing_heatmap(team_passing: DataFrame, team_passing_raw: DataFrame,
         cbar_label = "Standardized possession adjusted passing"
     
     # Create a data frame for scaled differences 
-    scaled_data = pd.DataFrame(scale(data), index=team_passing.index, 
-                               columns=team_passing.columns)
+    scaled_data = pd.DataFrame(MinMaxScaler(feature_range=(-1, 1)).fit_transform(data), 
+                               index=team_passing.index, columns=team_passing.columns)
     
     # Find columns per pass length
     long_pass = scaled_data.columns[scaled_data.columns.str.contains("Long pass")].to_list()
@@ -886,7 +886,7 @@ def team_passing_heatmap(team_passing: DataFrame, team_passing_raw: DataFrame,
     fig, ax = plt.subplots(figsize=(12, 8))       
         
     # Create heatmap
-    sns.heatmap(scaled_data.T, cmap="RdYlGn", vmin=-3, vmax=3,
+    sns.heatmap(scaled_data.T, cmap="RdYlGn", vmin=-1, vmax=1,
                 cbar_kws={"label": cbar_label})
     
     # Specify axis labels
@@ -954,91 +954,4 @@ def team_passing_heatmap(team_passing: DataFrame, team_passing_raw: DataFrame,
     # Save figure
     plt.tight_layout()
     plt.savefig(f"{fig_name}{fig_suffix}.png", dpi=300)
-        
-    # # Create a data frame for scaled possession adjusted passing 
-    # scaled_passing_df = pd.DataFrame(scale(team_passing), index=team_passing.index, 
-    #                                  columns=team_passing.columns)
-    
-    # # Reorder columns by pass length
-    # scaled_passing_df = scaled_passing_df[long_pass + medium_pass + short_pass]
-    
-    # # Change row order by cluster order
-    # scaled_passing_df = scaled_passing_df.iloc[cluster_sorting]
-      
-    # # Rename columns
-    # scaled_passing_df.columns = scaled_passing_df.columns.str.replace("_", " - ").str.replace(
-    #     "success", "Success").str.replace("fail", "Fail").str.replace("[A-z]+ pass - ", "", regex=True)
-    
-    # # Initialize a figure
-    # fig, ax = plt.subplots(figsize=(12, 8))       
-        
-    # # Create heatmap
-    # sns.heatmap(scaled_passing_df.T, cmap="RdYlGn", vmin=-3, vmax=3,
-    #             cbar_kws={"label": cbar_label})
-    
-    # # Specify axis labels
-    # ax.set_xlabel("", fontsize=14)
-    
-    # # Specify x-axis ticks to be white (= hidden)
-    # ax.tick_params(axis="x", colors="white", rotation=15)
-
-    # # Get the team badges and their relative path
-    # team_badge_data = get_team_badges(team_passing, tree=None, ax=ax)  
-    
-    # # Get axis position values
-    # badge_position = team_badge_data.position.values
-    
-    # # Change row order by cluster order
-    # team_badge_data = team_badge_data.iloc[cluster_sorting].reset_index(drop=True)
-      
-    # # Update position values
-    # team_badge_data["position"] = badge_position
-    
-    # # Save cluster assignment in badge information
-    # team_badge_data["cluster"] = team_clusters[cluster_sorting, 1]
-    
-    # # Add the final position for each team
-    # team_badge_data["tablePosition"] = team_clusters[cluster_sorting, 2]    
-    
-    # # Add the team logo for each leaf
-    # for index, row in team_badge_data.iterrows():
-    #     ab = AnnotationBbox(getImage(row["path"]), (row["position"], -20), 
-    #                         frameon=False, annotation_clip=False,
-    #                         xycoords=("data", "axes points"))
-    #     ax.add_artist(ab)
-    
-    #     # Add cluster label
-    #     ax.annotate(row.cluster, xy=(row["position"], 1.02),
-    #                 annotation_clip=False, horizontalalignment="center",
-    #                 xycoords=("data", "axes fraction"))
-        
-    #     # Add final standing
-    #     ax.annotate(f"#{row.tablePosition}", xy=(row["position"], -0.1),
-    #                 annotation_clip=False, horizontalalignment="center",
-    #                 xycoords=("data", "axes fraction"))
-    
-    # # Add cluster number information
-    # ax.annotate("Cluster number", xy=(0.5, 1.05), fontweight="bold",
-    #             annotation_clip=False, horizontalalignment="center",
-    #             xycoords=("axes fraction", "axes fraction"))
-    
-    # # Add cluster number information
-    # ax.annotate("Final position", xy=(-0.09, -0.1), fontweight="bold",
-    #             annotation_clip=False, horizontalalignment="center",
-    #             xycoords=("axes fraction", "axes fraction"))
-    
-    # # Loop over all pass lengths
-    # for idx, pass_length in zip((0, 0.95, 2.1), ["Short",  "Medium", "Long"]):
-    #     # Add passing length information
-    #     ax.annotate(f"{pass_length} passing", xy=(-0.33, 0.075 + (idx) * 0.33), 
-    #                 fontweight="bold", rotation=90, 
-    #                 annotation_clip=False, horizontalalignment="center",
-    #                 xycoords=("axes fraction", "axes fraction"))
-    
-    # # Draw horizontal lines to signify different pass lengths
-    # ax.hlines([14, 28], *ax.get_xlim(), colors=["black"])
-        
-    # # Save figure
-    # plt.tight_layout()
-    # plt.savefig(f"../Figures/heatmap_team_passing{fig_suffix}.png", dpi=300)
-        
+   
