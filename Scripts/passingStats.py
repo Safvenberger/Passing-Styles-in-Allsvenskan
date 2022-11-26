@@ -4,7 +4,6 @@
 
 import pandas as pd
 from pandera.typing import DataFrame
-from typing import Tuple
 
 
 def compute_passing_statistics(merged_wide_events: DataFrame, team: bool=False) -> DataFrame:
@@ -30,8 +29,7 @@ def compute_passing_statistics(merged_wide_events: DataFrame, team: bool=False) 
         merged_wide_events.action.isin(["Pass", "Right corner", "Left corner"]) &
         ~merged_wide_events.action_list.str.startswith("Goal")
         )].copy()
-    
-    
+      
     # Specify the columns to group by
     group_cols = ["match_id", "player", "team", "pass_length", "result_text"]
     sort_cols = ["player", "team"]
@@ -40,6 +38,16 @@ def compute_passing_statistics(merged_wide_events: DataFrame, team: bool=False) 
     if team:
         group_cols.remove("player")
         sort_cols.remove("player")
+        
+    # Compute number of corners per player, length and result
+    corners = passes.loc[passes.action_list.str.contains("corner")].groupby(
+        group_cols, as_index=False).size(
+            ).rename(columns={"size": "Corners"})
+           
+    # Compute number of clearances per player, length and result            
+    clearances = merged_wide_events.loc[merged_wide_events.action.eq("Clearance")].groupby(
+        group_cols, as_index=False).size(
+            ).rename(columns={"size": "Clearances"})
         
     # Pass into final third
     pass_into_final_third = passes.loc[passes.xpos.lt(70) & 
@@ -71,7 +79,7 @@ def compute_passing_statistics(merged_wide_events: DataFrame, team: bool=False) 
     assists = passes.loc[passes.assist].groupby(
         group_cols + ["assist"], as_index=False).size(
             ).rename(columns={"size": "Assists"})
-    
+            
     # Compute number of progressive passes per player, length and result
     progressive_passes = passes.loc[passes.progressive_pass].groupby(
         group_cols + ["progressive_pass"], as_index=False).size(
@@ -85,6 +93,8 @@ def compute_passing_statistics(merged_wide_events: DataFrame, team: bool=False) 
     # Combine all passing types into one data frame
     passing_stats = (
         wing_switch.drop("wing_switch", axis=1).merge(
+        corners, how="outer").merge(
+        clearances, how="outer").merge(
         key_passes.drop("key_pass", axis=1), how="outer").merge(
         passes_into_box.drop("pass_into_box", axis=1), how="outer").merge(
         crosses, how="outer").merge(
@@ -98,11 +108,9 @@ def compute_passing_statistics(merged_wide_events: DataFrame, team: bool=False) 
 
 def compute_possession_adjusted_stats(merged_wide_events: DataFrame, 
                                       passing_stats: DataFrame,
-                                      team: bool=False) -> Tuple[DataFrame,
-                                                                 DataFrame]:
+                                      team: bool=False) -> DataFrame:
     """
-    Compute possession adjusted stats for passes and corners for each game 
-    and player.
+    Compute possession adjusted stats for passes each game and player/team.
 
     Parameters
     ----------
@@ -118,10 +126,7 @@ def compute_possession_adjusted_stats(merged_wide_events: DataFrame,
     passing_stats_possession_adjusted : DataFrame 
         Data frame with all passing statistics per game and player, adjusted 
         by the team possession in the given game.
-    corners_possession_adjusted : DataFrame
-        Data frame with statistics of corners by game and player, adjusted
-        by the team possession in the given game.
-
+    
     """
     # Get all passes 
     passes = merged_wide_events.loc[merged_wide_events.action.isin(["Pass", 
@@ -139,17 +144,7 @@ def compute_possession_adjusted_stats(merged_wide_events: DataFrame,
         group_cols.remove("player")
         possession_cols.remove("player")
         start_col -= 1
-         
-    # Compute number of corners per player and result
-    corners = passes.loc[passes.action_list.str.contains("corner")].groupby(
-        group_cols, as_index=False).size(
-            ).rename(columns={"size": "Corners"})
-            
-    # Compute number of clearances per player, length and result            
-    clearances = merged_wide_events.loc[merged_wide_events.action.eq("Clearance")].groupby(
-        group_cols, as_index=False).size(
-            ).rename(columns={"size": "Clearances"})
-            
+                     
     # Compute the number of passes per game and team
     game_team_passes = passes.groupby(["match_id", "team"], as_index=False).size().rename(
         columns={"size": "team_passes"})
@@ -178,33 +173,15 @@ def compute_possession_adjusted_stats(merged_wide_events: DataFrame,
          passing_stats_possession_adjusted[column] = passing_stats_possession.apply(
             lambda x: 0.5 * x[column] / x.possession, axis=1)
           
-    # Combine corners and clearances
-    corner_and_clearances = corners.merge(clearances, how="outer").fillna(0)
-         
-    # Combine corner and clearance statistics with possession
-    corner_and_clearances_possession_adjusted = corner_and_clearances.merge(
-        game_team_passes.drop(["team_passes", "game_passes"], axis=1),
-        on=["match_id", "team"], how="inner")
-    
-    # Compute possession adjusted corner and clearance statistics
-    for column in corner_and_clearances_possession_adjusted.columns[(start_col):-1]:
-         corner_and_clearances_possession_adjusted[column] = corner_and_clearances_possession_adjusted.apply(
-            lambda x: 0.5 * x[column] / x.possession, axis=1)
-
-    # Compute possession adjusted corner statistics over the entire season
-    corner_and_clearances_possession_adjusted = corner_and_clearances_possession_adjusted.groupby(
-        possession_cols, as_index=False).sum().drop(["possession", "match_id"], axis=1)
-    
     # Compute possession adjusted passing statistics over the entire season
     passing_stats_possession_adjusted = passing_stats_possession_adjusted.groupby(
         possession_cols + ["pass_length"], as_index=False).sum().drop(
             ["possession", "match_id"], axis=1)
     
-    return passing_stats_possession_adjusted, corner_and_clearances_possession_adjusted
+    return passing_stats_possession_adjusted
        
 
 def combine_possession_adjusted_and_minutes(passing_stats_possession_adjusted: DataFrame,
-                                            corner_and_clearances_possession_adjusted: DataFrame,
                                             minutes_played_season: DataFrame) -> DataFrame:
     """
     Combine possession adjusted passing statistics with minutes played to 
@@ -214,9 +191,6 @@ def combine_possession_adjusted_and_minutes(passing_stats_possession_adjusted: D
     ----------
     passing_stats_possession_adjusted : DataFrame
         Data frame with all passing statistics per game and player, adjusted 
-        by the team possession in the given game.
-    corner_and_clearances_possession_adjusted : DataFrame or None
-        Data frame with statistics of corners by game and player, adjusted
         by the team possession in the given game.
     minutes_played_season : DataFrame
         Data frame with the total amount of minutes played during the season 
@@ -260,41 +234,9 @@ def combine_possession_adjusted_and_minutes(passing_stats_possession_adjusted: D
     # Reset the index to create common columns for merging 
     passing_adjusted_per_90.reset_index(inplace=True)
     
-    if corner_and_clearances_possession_adjusted is not None:
-        
-        # Combine possession adjusted corners + clearances with minutes played
-        corners_clearances_minutes = corner_and_clearances_possession_adjusted.merge(
-            minutes_played_season, on=index_cols)
-     
-        # Variable for only success/fail
-        success_fail_vars = corner_and_clearances_possession_adjusted.columns[3:]
-        
-        # Convert the possession adjusted number of corners + clearances to be per 90'    
-        corners_clearances_per_90 = [corners_clearances_minutes[[column, "minutes"]].apply(
-            lambda x: 90 * x / x.minutes, axis=1).drop("minutes", axis=1) for 
-            column in success_fail_vars]  
-        
-        # Add the standardized metrics and combine with player name and team
-        corners_clearances_per_90 = pd.concat(
-            [corners_clearances_minutes.drop(success_fail_vars, axis=1), 
-             pd.concat(corners_clearances_per_90, axis=1)], axis=1)
-        
-        # Convert corners + clearances from long to wide
-        corners_clearances_adjusted_per_90 = corners_clearances_per_90.drop(
-            "minutes", axis=1).pivot(index=index_cols, columns=["result_text"]
-                                     ).fillna(0)    
-       
-        # Reset the index to create common columns for merging merging
-        corners_clearances_adjusted_per_90.reset_index(inplace=True)        
+    # If there are no corners/clearances etc. to merge with
+    all_passing_adjusted_per_90 = passing_adjusted_per_90.fillna(0)
     
-        # Combine per 90' possession adjusted passing with corners + clearances
-        all_passing_adjusted_per_90 = passing_adjusted_per_90.merge(
-            corners_clearances_adjusted_per_90, how="outer").fillna(0)
-        
-    else:
-        # If there are no corners/clearances etc. to merge with
-        all_passing_adjusted_per_90 = passing_adjusted_per_90.fillna(0)
-        
     # Change the index back to the previous version prior to merging
     all_passing_adjusted_per_90.set_index(index_cols, inplace=True)
 
@@ -308,8 +250,10 @@ def combine_possession_adjusted_and_minutes(passing_stats_possession_adjusted: D
     return all_passing_adjusted_per_90
 
 
-def get_passing_data(merged_wide_events: DataFrame, minutes_played_season: DataFrame,
-                     team: bool=False) -> DataFrame:
+def get_passing_data(merged_wide_events: DataFrame, 
+                     minutes_played_season: DataFrame,
+                     team: bool=False,
+                     possession_adjust: bool=True) -> DataFrame:
     """
     Extract the passing data on the player (False) or team level (True).
 
@@ -322,7 +266,9 @@ def get_passing_data(merged_wide_events: DataFrame, minutes_played_season: DataF
         for all players.
     team : bool
         If the passing statistics should be per team (True) or player (False).
-
+    possession_adjust : bool
+        If the passing statistics should be possession adjusted.
+        
     Returns
     -------
     A data frame with passing statistics. 
@@ -340,15 +286,26 @@ def get_passing_data(merged_wide_events: DataFrame, minutes_played_season: DataF
     # Compute a pre-defined set of passing statistics to evalute players
     passing_stats = compute_passing_statistics(merged_wide_events, team=team)
     
-    # Compute possession adjusted passing statistics
-    passing_stats_possession_adjusted, corner_and_clearances_possession_adjusted = (
-        compute_possession_adjusted_stats(merged_wide_events, passing_stats, team=team))
+    # Remove corners and clearances
+    passing_stats.drop(["Corners", "Clearances"], axis=1, inplace=True)
+    
+    if possession_adjust:
+        # Compute possession adjusted passing statistics
+        passing_stats_possession_adjusted = compute_possession_adjusted_stats(merged_wide_events, 
+                                                                              passing_stats, 
+                                                                              team=team)
+    else:
+        # Find the columns to group by 
+        group_cols = passing_stats.columns[passing_stats.dtypes.eq("object")].to_list()
+        
+        # Compute the season-level passing statistics
+        passing_stats_possession_adjusted = passing_stats.fillna(0).drop(
+            "match_id", axis=1).groupby(group_cols).sum().reset_index()
         
     if not team:
         # Standardize passing statistics to be per 90'
         all_passing_adjusted_per_90 = combine_possession_adjusted_and_minutes(
             passing_stats_possession_adjusted, 
-            corner_and_clearances_possession_adjusted=None,
             minutes_played_season=minutes_played_season)
                 
         # Reorder columns by alphabetical order
@@ -357,8 +314,7 @@ def get_passing_data(merged_wide_events: DataFrame, minutes_played_season: DataF
         
     else:
         # Compute the passing stats per team for the entire season 
-        team_passing_stats_season = passing_stats_possession_adjusted.groupby(
-            ["team", "pass_length", "result_text"]).sum().reset_index().pivot(
+        team_passing_stats_season = passing_stats_possession_adjusted.pivot(
             index=["team"], columns=["pass_length", "result_text"])
                 
         # Rename columns by stacking hierarchical indexes
@@ -370,7 +326,7 @@ def get_passing_data(merged_wide_events: DataFrame, minutes_played_season: DataF
         
         # Drop all columns that only have 0 as a value
         team_passing_stats_season.drop(col_sums[col_sums.eq(0)].index, 
-                                       axis=1, inplace=True)
+                                               axis=1, inplace=True)
         
         # Reorder columns by alphabetical order
         team_passing_stats_season = team_passing_stats_season.reindex(

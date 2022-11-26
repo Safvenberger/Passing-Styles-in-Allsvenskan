@@ -16,6 +16,8 @@ from typing import Tuple
 from pandera.typing import DataFrame
 import warnings
 
+# Suppress numpy warning
+warnings.filterwarnings(action="ignore", category=np.ComplexWarning)
 
 def visualize_pca(passing_scaled: DataFrame,
                   passing: DataFrame,
