@@ -16,18 +16,18 @@ from typing import List, Tuple
 from pandera.typing import DataFrame
 
 
-def visualize_position_distribution(all_passing_adjusted_per_90_scaled: DataFrame, 
-                                    all_passing_adjusted_per_90: DataFrame,
+def visualize_position_distribution(passing_per_90_scaled: DataFrame, 
+                                    passing_per_90: DataFrame,
                                     league: str="Allsvenskan", year: int=2021) -> DataFrame:
     """
     Compute and visualize position proportions within clusters
 
     Parameters
     ----------
-    all_passing_adjusted_per_90_scaled :
+    passing_per_90_scaled :
         All passing events, standardized by minutes played, possession adjusted 
         and standardized per 90 minutes.
-    all_passing_adjusted_per_90 : DataFrame
+    passing_per_90 : DataFrame
         All passing events, standardized by minutes played, and possession adjusted
         per 90 minutes.
     league : str, optional
@@ -41,22 +41,38 @@ def visualize_position_distribution(all_passing_adjusted_per_90_scaled: DataFram
         Data frame with player position and cluster.
 
     """    
+    
+    # Specify colors
+    color_list = {"Goalkeeper": "#882E72", 
+                  "Centre-Back": "#1965B0", 
+                  "Left-Back": "#5289C7", 
+                  "Right-Back": "#7BAFDE",
+                  "Defensive Midfield": "#F6C141",
+                  "Central Midfield": "#F1932D", 
+                  "Attacking Midfield": "#E8601C",
+                  "Left Midfield": "#B8221E", 
+                  "Right Midfield": "#721E17", 
+                  "Left Winger": "#95211B", 
+                  "Right Winger": "#521A13",
+                  "Second Striker": "#90C987", 
+                  "Centre-Forward": "#4EB265"}
+    
     # Read position data
     positions = pd.read_csv(f"../{league}, {year}/{league}, {year}-positions.csv",
                             encoding="utf-8", sep=";")
     
     # Merge cluster information with player position 
-    position_and_cluster = all_passing_adjusted_per_90[["player", "team", "cluster"]].merge(
+    position_and_cluster = passing_per_90[["player", "team", "cluster"]].merge(
         positions, on=["player", "team"], how="inner")
     
     # Compute the number of players from each position in each cluster
     cluster_position_size = position_and_cluster.groupby(
-        ["cluster", "position"], as_index=False).size().sort_values(["cluster", "size"], 
-                                                                    ascending=[True, False])
+        ["cluster", "position"], as_index=False).size().sort_values(
+        ["cluster", "size"], ascending=[True, False]).rename(columns={"cluster": "Cluster"})
                      
     # Combine withing-cluster position size with cluster size
     cluster_position_size = cluster_position_size.merge(
-        cluster_position_size.groupby("cluster")["size"].sum().reset_index(name="clusterSize"))
+        cluster_position_size.groupby("Cluster")["size"].sum().reset_index(name="clusterSize"))
     
     # Combine position size with within-cluster positions size
     cluster_position_size = cluster_position_size.merge(
@@ -79,11 +95,12 @@ def visualize_position_distribution(all_passing_adjusted_per_90_scaled: DataFram
     plt.figure(figsize=(12, 8))                                                                    
     
     # Create a grid of plots
-    ax = sns.FacetGrid(cluster_position_size, col="cluster",
-                       col_wrap=3, hue="position")
+    ax = sns.FacetGrid(cluster_position_size, col="Cluster",
+                       col_wrap=3, hue="position", palette=color_list)
     
     # Map a barplot to each cluster for proportion within cluster
-    ax.map(sns.barplot, "prop_cluster", "position", order=position_order)
+    ax.map(sns.barplot, "prop_cluster", "position", order=position_order,
+           hue_order=position_order)
     
     # Specify axis labels
     ax.set_axis_labels(x_var="% of position in cluster", 
@@ -100,8 +117,8 @@ def visualize_position_distribution(all_passing_adjusted_per_90_scaled: DataFram
     plt.figure(figsize=(12, 8))                                                                    
     
     # Create a grid of plots
-    ax = sns.FacetGrid(cluster_position_size, col="cluster",
-                       col_wrap=3, hue="position")
+    ax = sns.FacetGrid(cluster_position_size, col="Cluster",
+                       col_wrap=3, hue="position", palette=color_list)
     
     # Map a barplot to each cluster for proportion of position
     ax.map(sns.barplot, "prop_position", "position", order=position_order)
@@ -116,23 +133,26 @@ def visualize_position_distribution(all_passing_adjusted_per_90_scaled: DataFram
     # Save figure
     plt.tight_layout()
     plt.savefig("../Figures/barplot_position_prop.png", dpi=300)
-    
+        
     return position_and_cluster
 
     
-def visualize_cluster_means(all_passing_adjusted_per_90_scaled: DataFrame, 
-                            all_passing_adjusted_per_90: DataFrame) -> None:
+def visualize_cluster_means(passing_per_90_scaled: DataFrame, 
+                            passing_per_90: DataFrame,
+                            ranks: bool=False) -> None:
     """
     Visualize the cluster means and their ranks.
 
     Parameters
     ----------
-    all_passing_adjusted_per_90_scaled :
+    passing_per_90_scaled :
         All passing events, standardized by minutes played, possession adjusted 
         and standardized per 90 minutes.
-    all_passing_adjusted_per_90 : DataFrame
+    passing_per_90 : DataFrame
         All passing events, standardized by minutes played, and possession adjusted
         per 90 minutes.
+    ranks : bool
+        If the plot should contain mean ranks (True) or not (False).
 
     Returns
     -------
@@ -141,26 +161,74 @@ def visualize_cluster_means(all_passing_adjusted_per_90_scaled: DataFrame,
     """
         
     # Create a data frame for computing cluster means based on standardized data
-    all_passing_adjusted_per_90_scaled_df = pd.DataFrame(
-        data=all_passing_adjusted_per_90_scaled, 
-        columns=all_passing_adjusted_per_90.drop(["player", "team", "cluster"], 
+    passing_per_90_scaled_df = pd.DataFrame(
+        data=passing_per_90_scaled, 
+        columns=passing_per_90.drop(["player", "team", "cluster"], 
                                                  axis=1).columns)    
     
     # Add cluster assignments
-    all_passing_adjusted_per_90_scaled_df["cluster"] = all_passing_adjusted_per_90["cluster"]
+    passing_per_90_scaled_df["cluster"] = passing_per_90["cluster"]
           
     # Compute cluster means across all numeric passing variables
-    means = all_passing_adjusted_per_90_scaled_df.groupby("cluster").mean()
+    means = passing_per_90_scaled_df.groupby("cluster").mean()
+    
+    if ranks:
+        # Compute the ranks
+        means = means.rank(axis=0, ascending=False)
+        
+        # Specify figure name 
+        fig_name = "../Figures/heatmap_cluster_ranks"
+        
+        # Specify colormap
+        cmap = "RdYlGn_r"
+        
+        # Specfiy max values for the colorbar
+        vmin, vmax = (1, 8)
+        
+        # Specify colorbar label
+        cbar_label = "Rank (lower rank = more passes)"
+    else:
+        # Rescale means to [-1, 1]
+        means = pd.DataFrame(MinMaxScaler(feature_range=(-1, 1)).fit_transform(means), 
+                             index=means.index, columns=means.columns)
+        
+        # Specify figure name 
+        fig_name = "../Figures/heatmap_cluster_means"
+        
+        # Specify colormap
+        cmap = "RdYlGn"
+        
+        # Specfiy max values for the colorbar
+        vmin, vmax = (-1, 1)
+        
+        # Specify colorbar label
+        cbar_label = "Standardized passing"
+    
+    # Find columns per pass length
+    long_pass = means.columns[means.columns.str.contains("Long pass")].to_list()
+    medium_pass = means.columns[means.columns.str.contains("Medium pass")].to_list()
+    short_pass = means.columns[means.columns.str.contains("Short pass")].to_list()
+    
+    # Reorder columns by pass length
+    means = means[long_pass + medium_pass + short_pass]
+
+    # Rename columns
+    means.columns = means.columns.str.replace("_", " - ").str.replace(
+        "success", "Success").str.replace("fail", "Fail").str.replace("[A-z]+ pass - ", "", regex=True)
     
     # Initialize a figure
     plt.figure(figsize=(12, 8))                                                                    
     
     # Create a heatmap of passing stats per cluster
-    ax = sns.heatmap(means.T, cmap="RdYlGn", 
-                     cbar_kws={"label": "Standardized passing"})
+    ax = sns.heatmap(means.T, cmap=cmap, vmin=vmin, vmax=vmax,
+                     cbar_kws={"label": cbar_label})
     
     # Specfiy axis text size
     ax.tick_params(axis="both", labelsize=12)
+
+    # Specify axis labels
+    ax.set_xlabel("Cluster number", fontsize=14)
+    ax.set_ylabel("", fontsize=14)
 
     # Get the colorbar
     cbar = ax.collections[0].colorbar
@@ -168,33 +236,21 @@ def visualize_cluster_means(all_passing_adjusted_per_90_scaled: DataFrame,
     # Specify font size for the colorbar
     cbar.ax.tick_params(labelsize=16)
     
-    # Save figure
-    plt.tight_layout()
-    plt.savefig("../Figures/heatmap_cluster_means.png", dpi=300)
+    # Loop over all pass lengths
+    for idx, pass_length in zip((0, 0.95, 2.1), ["Short",  "Medium", "Long"]):
+        # Add passing length information
+        ax.annotate(f"{pass_length} passing", xy=(-0.4, 0.075 + (idx) * 0.33), 
+                    fontweight="bold", rotation=90, 
+                    annotation_clip=False, horizontalalignment="center",
+                    xycoords=("axes fraction", "axes fraction"))
     
-    # Create a rank version of cluster means (1 = best, 7 = worst)
-    mean_ranks = means.rank(axis=0, ascending=False)
-    
-    # Initialize a figure
-    plt.figure(figsize=(12, 8))                                                                    
-    
-    # Create a heatmap of passing stats per cluster
-    ax = sns.heatmap(mean_ranks.T, cmap="RdYlGn_r", 
-                     cbar_kws={"label": "Rank (lower rank = more passes)"})
-    
-    # Specfiy axis text size
-    ax.tick_params(axis="both", labelsize=12)
-
-    # Get the colorbar
-    cbar = ax.collections[0].colorbar
-    
-    # Specify font size for the colorbar
-    cbar.ax.tick_params(labelsize=16)
+    # Draw horizontal lines to signify different pass lengths
+    ax.hlines([14, 28], *ax.get_xlim(), colors=["black"])
     
     # Save figure
     plt.tight_layout()
-    plt.savefig("../Figures/heatmap_cluster_ranks.png", dpi=300)
-    
+    plt.savefig(f"{fig_name}.png", dpi=300)
+ 
     
 def visualize_team_cluster(plot_data: DataFrame) -> None:
     """
@@ -210,30 +266,60 @@ def visualize_team_cluster(plot_data: DataFrame) -> None:
     None. Instead a plot is created.
 
     """
+    
+    # Specify colors
+    color_list = {'Malmö FF': '#125A56', 'AIK Solna': '#00767B',
+                  'Djurgårdens IF': '#238F9D', 'IF Elfsborg': '#42A7C6',
+                  'Hammarby IF': '#60BCE9', 'Kalmar FF': '#9DCCEF', 
+                  'IFK Norrköping': '#C6DBED', 'IFK Göteborg': '#ECEADA', 
+                  'Mjällby AIF': '#F0E6B2', 'Varbergs BoIS': '#F9D576',
+                  'IK Sirius': '#FFB954', 'BK Häcken': '#FD9A44',
+                  'Degerfors IF': '#F57634', 'Halmstads BK': '#E94C1F',
+                  'Örebro SK': '#D11807', 'Östersunds FK': '#A01813'}
+    
     # Compute the number of players in each cluster by team
     team_cluster = plot_data.groupby(["team", "cluster"], as_index=False).size(
-        ).sort_values(["cluster", "size"], ascending=[True, False])
+        ).sort_values(["cluster", "size"], ascending=[True, False]).rename(
+            columns={"cluster": "Cluster"})
         
     # Initialize a figure
     plt.figure(figsize=(12, 8))                                                                    
 
     # Create a plot for the number of players per cluster and team
-    ax = sns.catplot(data=team_cluster, x='size', y= "team", hue="team",
-                     col="cluster", dodge=False, 
-                     kind='bar', col_wrap=3, sharey=False)
+    ax = sns.catplot(data=team_cluster, x="size", y="team", hue="team",
+                     col="Cluster", dodge=False, legend=False,
+                     kind='bar', col_wrap=3, sharey=False, palette=color_list)
     
-    
+    # Loop over all axes
+    for cluster_nr, ax_nr in enumerate(ax.axes):
+        # Get the data from the cluster
+        cluster_data = team_cluster.loc[team_cluster.Cluster.eq(cluster_nr+1)]
+        
+        # Get the team badges and their relative path
+        team_badge_data = get_team_badges(cluster_data.set_index("team"), 
+                                          tree=None, ax=ax_nr, axis="y")  
+        
+        # Add the team logo for each axis
+        for index, row in team_badge_data.iterrows():
+            ab = AnnotationBbox(getImage(row["path"], zoom=0.02), (-20, row["position"]), 
+                                frameon=False, annotation_clip=False,
+                                xycoords=("axes points", "data"))
+            ax_nr.add_artist(ab)
+
+        
     # Specify axis labels
     ax.set_axis_labels(x_var="Number of players", 
                        y_var="")
     
+    # Set axis ticks
+    ax.set_yticklabels(color="white", rotation=45)
+    
     # Save figure
-    plt.tight_layout()
     plt.savefig("../Figures/barplot_cluster_team.png", dpi=300)
     
     
-def fit_player_cluster(pca_data: DataFrame, all_passing_adjusted_per_90: DataFrame,
-                       all_passing_adjusted_per_90_scaled: DataFrame,
+def fit_player_cluster(pca_data: DataFrame, passing_per_90: DataFrame,
+                       passing_per_90_scaled: DataFrame,
                        nr_clusters: int) -> DataFrame:
     """
     Perform clustering on the PCA data for players.
@@ -242,10 +328,10 @@ def fit_player_cluster(pca_data: DataFrame, all_passing_adjusted_per_90: DataFra
     ----------
     pca_data : DataFrame
         The data projected onto the PCA bases.
-    all_passing_adjusted_per_90_scaled :
+    passing_per_90_scaled :
         All passing events, standardized by minutes played, possession adjusted 
         and standardized per 90 minutes.
-    all_passing_adjusted_per_90 : DataFrame
+    passing_per_90 : DataFrame
         All passing events, standardized by minutes played, and possession adjusted
         per 90 minutes.
     nr_clusters : int
@@ -258,11 +344,14 @@ def fit_player_cluster(pca_data: DataFrame, all_passing_adjusted_per_90: DataFra
 
     """
     
+    # Copy to avoid changing in-place
+    passing_per_90 = passing_per_90.copy()
+    
     # Choose a satisfactory value of k for the final clustering
     k_medoids = KMedoids(n_clusters=nr_clusters, random_state=0).fit(pca_data)
 
     # Get the medoid in each cluster
-    medoids = all_passing_adjusted_per_90.iloc[
+    medoids = passing_per_90.iloc[
         k_medoids.medoid_indices_].reset_index().iloc[:, :2]
     
     # Add cluster label
@@ -271,22 +360,24 @@ def fit_player_cluster(pca_data: DataFrame, all_passing_adjusted_per_90: DataFra
     print(medoids)
        
     # Save the clustering labels
-    all_passing_adjusted_per_90["cluster"] = k_medoids.labels_+1
+    passing_per_90["cluster"] = k_medoids.labels_+1
     
     # Reset the index to get player and teams
-    all_passing_adjusted_per_90.reset_index(inplace=True)
+    passing_per_90.reset_index(inplace=True)
     
     # Evalute the positions within clusters
-    position_and_cluster = visualize_position_distribution(all_passing_adjusted_per_90_scaled,
-                                                           all_passing_adjusted_per_90)
+    position_and_cluster = visualize_position_distribution(passing_per_90_scaled,
+                                                           passing_per_90)
     
     # Evaluate cluster means and ranks
-    visualize_cluster_means(all_passing_adjusted_per_90_scaled,
-                            all_passing_adjusted_per_90)
-    
+    visualize_cluster_means(passing_per_90_scaled,
+                            passing_per_90, ranks=False)
+    visualize_cluster_means(passing_per_90_scaled,
+                            passing_per_90, ranks=True)
+
     # Create a data frame for plotting
     plot_data = pd.concat([pd.DataFrame(pca_data), 
-                           all_passing_adjusted_per_90[["player", "team", "cluster"]]],
+                           passing_per_90[["player", "team", "cluster"]]],
                           axis=1).rename(columns={0: "PC1", 1: "PC2", 2: "PC3", 
                                                   3: "PC4", 4: "PC5"})
     
@@ -299,6 +390,9 @@ def fit_player_cluster(pca_data: DataFrame, all_passing_adjusted_per_90: DataFra
         lambda x: np.nan if isinstance(x, float) else (
             0.001 * float(x[:-3]) if "Th" in x else 1 * float(x[:-1]) ))
            
+    # See how teams are distributed throughout clusters
+    visualize_team_cluster(plot_data)
+    
     # Save the data to a csv file
     plot_data.to_csv("../Data/plot_data.csv", index=False)
     
@@ -319,7 +413,12 @@ def interactive_player_clustering(plot_data: DataFrame, nr_clusters: int) -> Non
     None. Instead an interactive html plotly figure is created.
 
     """
-           
+    # Mapping of cluster number to cluster label
+    cluster_labels = {1: "1: The final third creator", 2: "2: The goalkeeper", 
+                      3: "3: The defensive outlet",    4: "4: The target man", 
+                      5: "5: The unwilling passer",    6: "6: The winger", 
+                      7: "7: The defensive passer",    8: "8: The advanced playmaker"}
+    
     # Find the different clusters
     clusters = plot_data["cluster"].sort_values().unique()
     
@@ -343,7 +442,7 @@ def interactive_player_clustering(plot_data: DataFrame, nr_clusters: int) -> Non
         trace = go.Scatter(x=df_cluster["PC1"], 
                            y=df_cluster["PC2"],
                            mode="markers",
-                           name=f"Cluster{cluster}",
+                           name=f"{cluster_labels[cluster]}",
                            marker=dict(color=cbPalette[cluster-1]),
                            hovertext=hovertext)
         
@@ -360,16 +459,24 @@ def interactive_player_clustering(plot_data: DataFrame, nr_clusters: int) -> Non
                            title="PC2",
                            ticks="inside"
                            ),
-                       # autosize=False, height=700, width=1080
+                       legend=dict(
+                           x=0.5,
+                           y=1.01,
+                           traceorder="normal",
+                           orientation="h",
+                           xanchor="center", yanchor="bottom"
+                           ),
+                       # autosize=False, height=1080, width=1080
                        )
+    
     # Create the figure
     fig = go.Figure(data=data, layout=layout)
 
     # Plot the figure
-    plot(fig, filename="passing-styles.html")
+    plot(fig, filename="../Figures/passing-styles.html")
 
 
-def getImage(path: str):
+def getImage(path: str, zoom: float=0.03):
     """
     From a given path, read an image file.
 
@@ -379,16 +486,18 @@ def getImage(path: str):
     ----------
     path : str
         The path to the image.
-
+    zoom : float
+        How much zoom should be added to each image.
+        
     Returns
     -------
     An image file, suitable for plotting.
 
     """
-    return OffsetImage(plt.imread(path), zoom=.03, alpha = 1)
+    return OffsetImage(plt.imread(path), zoom=zoom, alpha = 1)
 
 
-def get_team_badges(team_passing: DataFrame, tree: dict, ax) -> DataFrame:
+def get_team_badges(team_passing: DataFrame, tree: dict, ax, axis: str="y") -> DataFrame:
     """
     Create a data frame with the paths to an image of each team's badge.
 
@@ -400,6 +509,8 @@ def get_team_badges(team_passing: DataFrame, tree: dict, ax) -> DataFrame:
         A dict as returned by shc.dendrogram().
     ax : matplotlib.axes._subplots.AxesSubplot
         Matplotlib figure axes.
+    axis : str
+        The axis to get labels from, either x or y. 
 
     Returns
     -------
@@ -422,10 +533,11 @@ def get_team_badges(team_passing: DataFrame, tree: dict, ax) -> DataFrame:
         # Combine team badge path and leaf in the plot
         team_badge_data = team_badge_data.merge(team_leaf, on="team").sort_values("index")
     
+    if axis == "y":
         # Get the axis tick position
         team_badge_data["position"] = [i.get_position()[1] for i 
                                        in ax.get_yticklabels()] 
-    else:
+    elif axis == "x":
         # Get the axis tick position
         team_badge_data["position"] = [i.get_position()[0] for i 
                                        in ax.get_xticklabels()] 
@@ -780,7 +892,7 @@ def fit_team_cluster(pca_team_data: DataFrame,
     ax.tick_params(axis="y", colors="white", rotation=80)
     
     # Get the team badges and their relative path
-    team_badge_data = get_team_badges(team_passing, tree, ax)
+    team_badge_data = get_team_badges(team_passing, tree, ax, axis="y")
                      
     # Add the team logo for each leaf
     for index, row in team_badge_data.iterrows():
@@ -855,12 +967,22 @@ def team_passing_heatmap(team_passing: DataFrame, team_passing_raw: DataFrame,
     team_passing_diff = team_passing - team_passing_raw
             
     if heatmap_difference:
+        # Get data
         data = team_passing_diff.copy()
+        
+        # Specify figure name 
         fig_name = "../Figures/heatmap_team_passing_diff"
+        
+        # Specify colorbar label
         cbar_label = "Standardized difference of possession adjusted passing and raw counts"
     else:
+        # Get data
         data = team_passing.copy()
+        
+        # Specify figure name 
         fig_name = "../Figures/heatmap_team_passing"
+        
+        # Specify colorbar label
         cbar_label = "Standardized possession adjusted passing"
     
     # Create a data frame for scaled differences 
@@ -896,7 +1018,7 @@ def team_passing_heatmap(team_passing: DataFrame, team_passing_raw: DataFrame,
     ax.tick_params(axis="x", colors="white", rotation=15)
 
     # Get the team badges and their relative path
-    team_badge_data = get_team_badges(team_passing, tree=None, ax=ax)  
+    team_badge_data = get_team_badges(team_passing, tree=None, ax=ax, axis="x")  
     
     # Get axis position values
     badge_position = team_badge_data.position.values
