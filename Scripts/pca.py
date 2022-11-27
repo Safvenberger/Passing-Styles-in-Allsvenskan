@@ -149,6 +149,18 @@ def visualize_pca_loadings(passing_scaled: DataFrame,
        index=passing.columns
      )   
 
+    # Find index per pass length
+    long_pass = loadings.index[loadings.index.str.contains("Long pass")].to_list()
+    medium_pass = loadings.index[loadings.index.str.contains("Medium pass")].to_list()
+    short_pass = loadings.index[loadings.index.str.contains("Short pass")].to_list()
+    
+    # Reorder index by pass length
+    loadings = loadings.loc[long_pass + medium_pass + short_pass]
+    
+    # Rename index
+    loadings.index = loadings.index.str.replace("_", " - ").str.replace(
+        "success", "Success").str.replace("fail", "Fail").str.replace("[A-z]+ pass - ", "", regex=True)
+    
     # Initialize figure
     plt.figure(figsize=(12, 8))    
     
@@ -167,6 +179,18 @@ def visualize_pca_loadings(passing_scaled: DataFrame,
     
     # Specify font size for the colorbar
     cbar.ax.tick_params(labelsize=16)
+    
+    # Loop over all pass lengths
+    for idx, pass_length in zip((0, 0.95, 2.1), ["Short",  "Medium", "Long"]):
+        # Add passing length information
+        ax.annotate(f"{pass_length} passing", xy=(-0.4, 0.075 + (idx) * 0.33), 
+                    fontweight="bold", rotation=90, 
+                    annotation_clip=False, horizontalalignment="center",
+                    xycoords=("axes fraction", "axes fraction"))
+    
+    # Draw horizontal lines to signify different pass lengths
+    ax.hlines([14, 28], *ax.get_xlim(), colors=["black"])
+    
     
     # Save figure
     plt.tight_layout()
