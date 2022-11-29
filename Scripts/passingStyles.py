@@ -7,9 +7,21 @@ from passingStats import get_passing_data
 from pca import fit_pca
 from clustering import fit_player_cluster, interactive_player_clustering, \
     fit_team_cluster, team_passing_heatmap
+from matplotlib import font_manager
+from matplotlib import rcParams
 
 
 if __name__ == "__main__":
+    
+    # Find all fonts
+    font_files = font_manager.findSystemFonts(fontpaths="../Fonts")
+    
+    # Add all fonts
+    for font_file in font_files:
+        font_manager.fontManager.addfont(font_file)
+    
+    # Set Roboto as default font
+    rcParams["font.family"] = "Roboto"
     
     # Specify input
     league = "Allsvenskan"
@@ -48,7 +60,7 @@ if __name__ == "__main__":
 
     # Create a hierarchical clustering of teams
     team_linkage = fit_team_cluster(pca_team_data, team_passing, plot_iterative_tree=False)
-
+    
     # Create a hierarchical clustering of teams for a subset
     fit_team_cluster(pca_team_data, team_passing, plot_iterative_tree=True,
                      threshold=5)
