@@ -33,9 +33,9 @@ ggplot(plot_data, aes(PC1, PC2,
   theme_classic() + theme(legend.position = "top", panel.grid = element_blank(),
                           axis.line.x.bottom = element_line(color="#C0C0C0"),
                           axis.line.y.left =  element_line(color="#C0C0C0"),
-                          axis.text = element_text(size=24, color="black"), 
-                          axis.title = element_text(size=24),
-                          legend.text = element_text(size=24)) + 
+                          axis.text = element_text(size=34, color="black"), 
+                          axis.title = element_text(size=34),
+                          legend.text = element_text(size=34)) + 
   guides(label = "none")
 
 # Save the figure
