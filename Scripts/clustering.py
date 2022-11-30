@@ -7,6 +7,7 @@ import numpy as np
 from sklearn.preprocessing import MinMaxScaler
 from sklearn_extra.cluster import KMedoids
 import scipy.cluster.hierarchy as shc
+from scipy.spatial.distance import pdist
 import matplotlib.pyplot as plt
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 import seaborn as sns
@@ -14,6 +15,7 @@ from plotly.offline import plot
 import plotly.graph_objects as go
 from typing import List, Tuple
 from pandera.typing import DataFrame
+import warnings
 
 
 def visualize_position_distribution(passing_per_90_scaled: DataFrame, 
@@ -106,6 +108,12 @@ def visualize_position_distribution(passing_per_90_scaled: DataFrame,
     ax.set_axis_labels(x_var="% of position in cluster", 
                        y_var="")
     
+    # Specify plot style
+    sns.set_style("ticks", {"axes.edgecolor": "C0C0C0"})
+    
+    # Remove spines
+    sns.despine()
+
     # Specify limit
     ax.set(xlim=(0, 100))
     
@@ -129,7 +137,13 @@ def visualize_position_distribution(passing_per_90_scaled: DataFrame,
     # Specify axis labels
     ax.set_axis_labels(x_var="% of all in position", 
                        y_var="")
+        
+    # Specify plot style
+    sns.set_style("ticks", {"axes.edgecolor": "C0C0C0"})
     
+    # Remove spines
+    sns.despine()
+
     # Save figure
     plt.tight_layout()
     plt.savefig("../Figures/barplot_position_prop.png", dpi=300)
@@ -220,8 +234,7 @@ def visualize_cluster_means(passing_per_90_scaled: DataFrame,
     plt.figure(figsize=(12, 8))                                                                    
     
     # Create a heatmap of passing stats per cluster
-    ax = sns.heatmap(means.T, cmap=cmap, vmin=vmin, vmax=vmax,
-                     cbar_kws={"label": cbar_label})
+    ax = sns.heatmap(means.T, cmap=cmap, vmin=vmin, vmax=vmax)
     
     # Specfiy axis text size
     ax.tick_params(axis="both", labelsize=12)
@@ -234,7 +247,22 @@ def visualize_cluster_means(passing_per_90_scaled: DataFrame,
     cbar = ax.collections[0].colorbar
     
     # Specify font size for the colorbar
-    cbar.ax.tick_params(labelsize=16)
+    cbar.ax.tick_params(labelsize=12)
+    
+    # Set colorbar title size
+    ax.figure.axes[-1].yaxis.label.set_size(14)
+    
+    # Ignore fixed formatter warning
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        if not ranks:
+            # Align colorbar ticks
+            ticklabs = cbar.ax.get_yticklabels()
+            cbar.ax.set_yticklabels(ticklabs, ha='right')
+            cbar.ax.yaxis.set_tick_params(pad=40) 
+    
+    # Specify colorbar label
+    cbar.set_label(cbar_label, labelpad=15)
     
     # Loop over all pass lengths
     for idx, pass_length in zip((0, 0.95, 2.1), ["Short",  "Medium", "Long"]):
@@ -306,13 +334,18 @@ def visualize_team_cluster(plot_data: DataFrame) -> None:
                                 xycoords=("axes points", "data"))
             ax_nr.add_artist(ab)
 
-        
+    # Specify plot style
+    sns.set_style("ticks", {"axes.edgecolor": "C0C0C0"})
+    
+    # Remove spines
+    sns.despine()
+    
     # Specify axis labels
     ax.set_axis_labels(x_var="Number of players", 
                        y_var="")
     
     # Set axis ticks
-    ax.set_yticklabels(color="white", rotation=45)
+    ax.set_yticklabels(color="white", rotation=45, size=12)
     
     # Save figure
     plt.savefig("../Figures/barplot_cluster_team.png", dpi=300)
@@ -399,7 +432,7 @@ def fit_player_cluster(pca_data: DataFrame, passing_per_90: DataFrame,
     return plot_data
 
 
-def interactive_player_clustering(plot_data: DataFrame, nr_clusters: int) -> None:
+def interactive_player_clustering(plot_data: DataFrame) -> None:
     """
     Create an interactive plot for examining the clustering of players
 
@@ -415,7 +448,7 @@ def interactive_player_clustering(plot_data: DataFrame, nr_clusters: int) -> Non
     """
     # Mapping of cluster number to cluster label
     cluster_labels = {1: "1: The final third creator", 2: "2: The goalkeeper", 
-                      3: "3: The defensive outlet",    4: "4: The target man", 
+                      3: "3: The defensive outlet",    4: "4: The target man",# + " " * 35, 
                       5: "5: The unwilling passer",    6: "6: The winger", 
                       7: "7: The defensive passer",    8: "8: The advanced playmaker"}
     
@@ -464,16 +497,16 @@ def interactive_player_clustering(plot_data: DataFrame, nr_clusters: int) -> Non
                            y=1.01,
                            traceorder="normal",
                            orientation="h",
-                           xanchor="center", yanchor="bottom"
+                           xanchor="left", yanchor="bottom"
                            ),
-                       # autosize=False, height=1080, width=1080
+                       autosize=False, height=600, width=970
                        )
     
     # Create the figure
     fig = go.Figure(data=data, layout=layout)
 
     # Plot the figure
-    plot(fig, filename="../Figures/passing-styles.html")
+    plot(fig, filename="../Figures/passing-style.html")
 
 
 def getImage(path: str, zoom: float=0.03):
@@ -789,7 +822,16 @@ def plot_tree(tree: dict, team_badge_data: DataFrame, pos=None,
         
         # Specify axis labels
         ax.set_ylabel("Distance", fontsize=14)
-                
+    
+    # Change plot spines
+    ax.spines["right"].set_visible(False)
+    ax.spines["top"].set_visible(False)
+    ax.spines["left"].set_color("#C0C0C0")
+    ax.spines["bottom"].set_color("#C0C0C0")
+    
+    # Change ticks
+    ax.tick_params(axis="both", labelsize=12, color="#C0C0C0")
+        
     # Set figure title
     ax.set_title("Hierarchical clustering of team passing statistics")
         
@@ -887,6 +929,15 @@ def fit_team_cluster(pca_team_data: DataFrame,
     # Specify axis labels
     ax.set_xlabel("Distance", fontsize=14)
     ax.set_title("Hierarchical clustering of team passing statistics")
+        
+    # Change plot spines
+    ax.spines["right"].set_visible(False)
+    ax.spines["top"].set_visible(False)
+    ax.spines["left"].set_color("#C0C0C0")
+    ax.spines["bottom"].set_color("#C0C0C0")
+    
+    # Change ticks
+    ax.tick_params(axis="both", labelsize=12, color="#C0C0C0")
     
     # Make the y-axis ticks white in color 
     ax.tick_params(axis="y", colors="white", rotation=80)
@@ -916,6 +967,9 @@ def fit_team_cluster(pca_team_data: DataFrame,
             plot_tree(tree, team_badge_data, pos=range(i), invert=True,
                       distance_threshold=threshold)
             
+    # Print cophenet coefficient
+    print(shc.cophenet(team_linkage[:, :4], pdist(pca_team_data))[0])        
+    
     return team_linkage
 
 
@@ -1008,14 +1062,43 @@ def team_passing_heatmap(team_passing: DataFrame, team_passing_raw: DataFrame,
     fig, ax = plt.subplots(figsize=(12, 8))       
         
     # Create heatmap
-    sns.heatmap(scaled_data.T, cmap="RdYlGn", vmin=-1, vmax=1,
-                cbar_kws={"label": cbar_label})
+    sns.heatmap(scaled_data.T, cmap="RdYlGn", vmin=-1, vmax=1)
+    
+    # Get the colorbar
+    cbar = ax.collections[0].colorbar
+    
+    # Specify font size for the colorbar
+    cbar.ax.tick_params(labelsize=12)
+    
+    # Set colorbar title size
+    ax.figure.axes[-1].yaxis.label.set_size(14)
+    
+    # Ignore fixed formatter warning
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+    
+        # Align colorbar ticks
+        ticklabs = cbar.ax.get_yticklabels()
+        cbar.ax.set_yticklabels(ticklabs, ha='right')
+        cbar.ax.yaxis.set_tick_params(pad=40) 
+    
+    # Specify colorbar label
+    cbar.set_label(cbar_label, labelpad=15)
     
     # Specify axis labels
     ax.set_xlabel("", fontsize=14)
         
     # Specify x-axis ticks to be white (= hidden)
-    ax.tick_params(axis="x", colors="white", rotation=15)
+    ax.tick_params(axis="x", colors="white", rotation=15, labelsize=12, color="#C0C0C0")
+
+    # Specify y-axis ticks    
+    ax.tick_params(axis="y", labelsize=12, color="#C0C0C0")
+
+    # Change plot spines
+    ax.spines["right"].set_visible(False)
+    ax.spines["top"].set_visible(False)
+    ax.spines["left"].set_color("#C0C0C0")
+    ax.spines["bottom"].set_color("#C0C0C0")
 
     # Get the team badges and their relative path
     team_badge_data = get_team_badges(team_passing, tree=None, ax=ax, axis="x")  
@@ -1072,8 +1155,84 @@ def team_passing_heatmap(team_passing: DataFrame, team_passing_raw: DataFrame,
     
     # Draw horizontal lines to signify different pass lengths
     ax.hlines([14, 28], *ax.get_xlim(), colors=["black"])
+        
+    # Change plot spines
+    ax.spines["right"].set_visible(False)
+    ax.spines["top"].set_visible(False)
+    ax.spines["left"].set_color("#C0C0C0")
+    ax.spines["bottom"].set_color("#C0C0C0")
+    
+    # Change ticks
+    ax.tick_params(axis="both", labelsize=12, color="#C0C0C0")
     
     # Save figure
     plt.tight_layout()
     plt.savefig(f"{fig_name}{fig_suffix}.png", dpi=300)
+   
+    
+def team_pca_plot(pca_team_data: DataFrame, team_passing: DataFrame) -> None:
+    """
+    Createa a scatterplot of team passing stats in PCA space.
+
+    Parameters
+    ----------
+    pca_team_data : DataFrame
+        The data projected onto the PCA bases.
+    team_passing : DataFrame
+        The passing statistics per team.
+
+    Returns
+    -------
+    None. Instead a plot is created and saved.
+    
+    """
+    # Convert PCA data to a data frame
+    pca_df = pd.DataFrame(pca_team_data, columns=["PC1", "PC2"])
+    
+    # Initialize a figure
+    fig, ax = plt.subplots(figsize=(12, 8))       
+    
+    # Create a scatterplot
+    sns.scatterplot(data=pca_df, x="PC1", y="PC2", zorder=1)
+    
+    # Get the team badges and their relative path
+    team_badge_data = get_team_badges(team_passing, tree=None, ax=ax, axis=None)
+                     
+    # Add the team logo for each point
+    for badges, pca_data in zip(team_badge_data.iterrows(), pca_df.itertuples()):
+        ab = AnnotationBbox(getImage(badges[1].path), (pca_data.PC1, pca_data.PC2), 
+                            frameon=False, annotation_clip=False,
+                            xycoords=("data", "data"))
+        ax.add_artist(ab)
+        
+    # Add horizontal arrow
+    ax.annotate(text="", xy=(-7.5, 0), xytext=(7.5, 0), zorder=0,
+                arrowprops=dict(arrowstyle="<->", color="#C0C0C0"))
+    
+    # Add vertical arrows
+    ax.annotate(text="", xy=(0, -7.5), xytext=(0, 7.5), zorder=0,
+                arrowprops=dict(arrowstyle="<->", color="#C0C0C0"))
+    
+    # Add descriptive text
+    ax.annotate(text="Shorter passing", xy=(6, 0.2), fontstyle="italic")
+    ax.annotate(text="Longer passing", xy=(-7.25, 0.2), fontstyle="italic")
+    ax.annotate(text="Less offensive progression", xy=(0.1, 7), fontstyle="italic")
+    ax.annotate(text="More offensive progression", xy=(0.1, -7), fontstyle="italic")
+    
+    # Change plot spines
+    ax.spines["right"].set_visible(False)
+    ax.spines["top"].set_visible(False)
+    ax.spines["left"].set_color("#C0C0C0")
+    ax.spines["bottom"].set_color("#C0C0C0")
+    
+    # Change ticks
+    ax.tick_params(axis="both", labelsize=12, color="#C0C0C0")
+
+    # Specify plot limits
+    ax.set_xlim(np.floor(pca_df.min().min()), np.ceil(pca_df.max().max()))
+    ax.set_ylim(np.floor(pca_df.min().min()), np.ceil(pca_df.max().max()))
+        
+    # Save figure
+    plt.tight_layout()
+    plt.savefig("../Figures/scatter_team_pca.png", dpi=300)
    

@@ -90,15 +90,24 @@ def visualize_pca(passing_scaled: DataFrame,
     ax.set_yticks(ticks=np.linspace(0,1,11))
     
     # Specfiy axis text size
-    ax.tick_params(axis="x", rotation=45, labelsize=10)
+    ax.tick_params(axis="x", rotation=45)
     ax.tick_params(axis="y", labelsize=12)
 
     # Specify axis labels
     ax.set_xlabel("Principal component", fontsize=14)
     ax.set_ylabel("Proportion of variance explained", fontsize=14)
     
+    # Change plot spines
+    ax.spines["right"].set_visible(False)
+    ax.spines["top"].set_visible(False)
+    ax.spines["left"].set_color("#C0C0C0")
+    ax.spines["bottom"].set_color("#C0C0C0")
+    
+    # Change ticks
+    ax.tick_params(axis="both", labelsize=12, color="#C0C0C0")
+    
     # Specify the boundaries of the y axis
-    ax.set_ylim(0, 1)
+    ax.set_ylim(0, 1.01)
 
     # Save figure
     plt.tight_layout()
@@ -165,20 +174,39 @@ def visualize_pca_loadings(passing_scaled: DataFrame,
     plt.figure(figsize=(12, 8))    
     
     # Plot the heatmap of loadings    
-    ax = sns.heatmap(loadings, cmap="RdYlGn", vmin=-1, vmax=1,
-                     cbar_kws={"label": "PCA loading"})
+    ax = sns.heatmap(loadings, cmap="RdYlGn", vmin=-1, vmax=1)
 
-    # Specfiy axis text size
-    ax.tick_params(axis="both", labelsize=12)
+    # Change plot spines
+    ax.spines["right"].set_visible(False)
+    ax.spines["top"].set_visible(False)
+    ax.spines["left"].set_color("#C0C0C0")
+    ax.spines["bottom"].set_color("#C0C0C0")
+    
+    # Change ticks
+    ax.tick_params(axis="both", labelsize=12, color="#C0C0C0")
 
     # Rotate x-axis ticks
     ax.tick_params(axis="x", rotation=90)
 
     # Get the colorbar
     cbar = ax.collections[0].colorbar
+        
+    # Ignore fixed formatter warning
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        # Align colorbar ticks
+        ticklabs = cbar.ax.get_yticklabels()
+        cbar.ax.set_yticklabels(ticklabs, ha='right')
+        cbar.ax.yaxis.set_tick_params(pad=40) 
+
+    # Specify colorbar label
+    cbar.set_label("PCA loading", labelpad=15)
     
     # Specify font size for the colorbar
-    cbar.ax.tick_params(labelsize=16)
+    cbar.ax.tick_params(labelsize=12)
+    
+    # Set colorbar title size
+    ax.figure.axes[-1].yaxis.label.set_size(14)
     
     # Loop over all pass lengths
     for idx, pass_length in zip((0, 0.95, 2.1), ["Short",  "Medium", "Long"]):
@@ -249,6 +277,15 @@ def visualize_number_of_clusters(pca_data: DataFrame,
     # Create a barplot showing the best values for k
     ax = sns.barplot(data=plot_data, x="k", y="Silhouette", order=best_k, 
                      color="#E8112d")
+    
+    # Change plot spines
+    ax.spines["right"].set_visible(False)
+    ax.spines["top"].set_visible(False)
+    ax.spines["left"].set_color("#C0C0C0")
+    ax.spines["bottom"].set_color("#C0C0C0")
+    
+    # Change ticks
+    ax.tick_params(axis="both", labelsize=12, color="#C0C0C0")
     
     # Specify axis labels
     ax.set_xlabel("Number of clusters", fontsize=14)
@@ -383,7 +420,7 @@ def parallel_analysis(input_data: np.ndarray, iterations: int=100, centile: int=
         plt.axhline(y=1, color="lightgray", alpha=0.5)
         
         # Add legend
-        plt.legend()
+        plt.legend(prop={"size": 12})
         
         # Specify axis labels
         ax.set_xlabel("Number of components", fontsize=14)
@@ -397,6 +434,15 @@ def parallel_analysis(input_data: np.ndarray, iterations: int=100, centile: int=
         # Set the axis tick labels to be 1 higher
         ax.set_xticklabels([i + 1 for i in ticks])
         
+        # Change plot spines
+        ax.spines["right"].set_visible(False)
+        ax.spines["top"].set_visible(False)
+        ax.spines["left"].set_color("#C0C0C0")
+        ax.spines["bottom"].set_color("#C0C0C0")
+        
+        # Change ticks
+        ax.tick_params(axis="both", labelsize=12, color="#C0C0C0")
+            
         # Save figure
         plt.tight_layout()
         plt.savefig(f"../Figures/parallel_analysis{fig_suffix}.png", dpi=300)
@@ -449,7 +495,8 @@ def fit_pca(passing: DataFrame,
     # project the original data onto the principal components
     pca_data = PCA(n_components=retained).fit_transform(passing_scaled)
 
-    # Visualize which k should be chosen as the number of clusters
-    visualize_number_of_clusters(pca_data, team=False)
+    if not team:
+        # Visualize which k should be chosen as the number of clusters
+        visualize_number_of_clusters(pca_data, team=False)
 
     return pca_data, passing_scaled

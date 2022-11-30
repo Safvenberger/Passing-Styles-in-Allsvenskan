@@ -6,7 +6,7 @@ from preprocess import preprocess_data
 from passingStats import get_passing_data
 from pca import fit_pca
 from clustering import fit_player_cluster, interactive_player_clustering, \
-    fit_team_cluster, team_passing_heatmap
+    fit_team_cluster, team_passing_heatmap, team_pca_plot
 from matplotlib import font_manager
 from matplotlib import rcParams
 
@@ -72,3 +72,7 @@ if __name__ == "__main__":
     # Plot a heatmap of possession adjusted adjusted passing statistics
     team_passing_heatmap(team_passing, team_passing_raw, linkage=team_linkage,
                          threshold=5, heatmap_difference=False)
+    
+    # Create a scatterplot of team passing statistics in PCA space
+    team_pca_plot(pca_team_data, team_passing)
+    
