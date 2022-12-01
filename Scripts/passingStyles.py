@@ -59,7 +59,7 @@ if __name__ == "__main__":
     interactive_player_clustering(plot_data)
 
     # Create a hierarchical clustering of teams
-    team_linkage = fit_team_cluster(pca_team_data, team_passing, plot_iterative_tree=False)
+    team_linkage = fit_team_cluster(pca_team_data, team_passing, plot_iterative_tree=True)
     
     # Create a hierarchical clustering of teams for a subset
     fit_team_cluster(pca_team_data, team_passing, plot_iterative_tree=True,

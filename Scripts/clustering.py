@@ -838,7 +838,7 @@ def plot_tree(tree: dict, team_badge_data: DataFrame, pos=None,
     # Save figure
     plt.tight_layout()
     plt.savefig(f"../Figures/TeamClusterIterative/hiearchical_cluster_team_iteration_{fig_suffix}" +
-                f"_{pos[-1]}.png", 
+                f"{pos[-1]}.png", 
                 dpi=300)     
         
     # Show plot
@@ -923,8 +923,22 @@ def fit_team_cluster(pca_team_data: DataFrame,
     with plt.rc_context({"lines.linewidth": 2.5}):
         # Create a dendrogram showing team clustering
         tree = shc.dendrogram(Z=team_linkage[:, :4], orientation="right",
-                              labels=team_passing.index,
+                              labels=team_passing.index, no_plot=True,
                               link_color_func=link_color_func)
+        
+        # Determine if there should be a color threshold or not
+        if threshold is None:
+            color_threshold = 0
+        else:
+            color_threshold = None
+            
+        # Plot the dendrogram
+        tree = shc.dendrogram(Z=team_linkage[:, :4], orientation="right",
+                              labels=team_passing.index,
+                              color_threshold=color_threshold,
+                              above_threshold_color="#0077BB",
+                              link_color_func=link_color_func)
+    
     
     # Specify axis labels
     ax.set_xlabel("Distance", fontsize=14)
