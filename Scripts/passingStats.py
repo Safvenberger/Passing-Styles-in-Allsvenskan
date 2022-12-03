@@ -2,8 +2,11 @@
 # -*- coding: utf-8 -*-
 # Author: Rasmus Säfvenberg
 
+import numpy as np
 import pandas as pd
 from pandera.typing import DataFrame
+import seaborn as sns
+import matplotlib.pyplot as plt   
 
 
 def compute_passing_statistics(merged_wide_events: DataFrame, team: bool=False) -> DataFrame:
@@ -336,3 +339,88 @@ def get_passing_data(merged_wide_events: DataFrame,
 
     return all_passing_adjusted_per_90
 
+
+def visualize_overall_passing(merged_wide_events: DataFrame) -> None:
+    """
+    Visualize the total number of passes per group.
+
+    Parameters
+    ----------
+    merged_wide_events : DataFrame
+        Data frame of all events in wide format.
+
+    Returns
+    -------
+    None. Instead a plot is created.
+
+    """
+    # Compute the passing statistics overall
+    passing = compute_passing_statistics(merged_wide_events, team=True).fillna(0).drop(
+        ["match_id", "team", "Clearances", "Corners"], axis=1).groupby(
+        ["pass_length", "result_text"], as_index=False).sum()
+    
+    # Convert from wide to long
+    passing = passing.loc[passing.pass_length.ne("0")].melt(
+        id_vars=["pass_length", "result_text"]).sort_values(["pass_length", "variable"])
+    
+    # Change outcome text
+    passing["result_text"] = passing["result_text"].map({"fail": "Fail",
+                                                         "success": "Success"})
+    
+    # Initialize figure
+    plt.figure(figsize=(12, 8))
+    
+    # Create a facet grid
+    grid = sns.catplot(data=passing, x="pass_length", y="value", 
+                       col="variable", hue="result_text", legend=False,
+                       kind="bar", col_wrap=3, ci=None, sharey=False,
+                       palette=["#EE6677", "#228833"])
+    
+    # Specify plot style
+    sns.set_style("ticks", {"axes.edgecolor": "C0C0C0"})
+    
+    # Remove spines
+    sns.despine()
+    
+    # Specify axis labels
+    grid.set_axis_labels(x_var="", y_var="Number of passes", size=16)
+    grid.set_xticklabels(size=14)
+    grid.set_yticklabels(size=14)
+    
+    # Specify axis ticks
+    for axis in grid.axes:
+        # Get the current y-axis tick labels
+        yaxislabels = np.array([int(lab.get_text()) for lab in axis.get_yticklabels()])
+        
+        # Specify the new y-axis ticks
+        new_labs = np.arange(yaxislabels.min(), yaxislabels.max()+1, 
+                             step=yaxislabels.max()//5)
+        
+        # Update y-axis ticks
+        axis.set(yticks=new_labs, yticklabels=new_labs)
+        
+        # Loop over all bars in a subplot
+        for bar in axis.containers:
+            # Get the height (=number of passes) of each bar
+            labels = [int(v) if v > 0 else "" for v in bar.datavalues] 
+        
+            # Add a label on top of the bar to show the number of passes
+            axis.bar_label(bar, labels=labels, label_type="edge", 
+                           color="black", size=12)
+        
+        # Set x-axis ticks for all plots
+        axis.tick_params(labelbottom=True)
+
+    # Use actual value for facet title
+    grid.set_titles("{col_name}", size=16, style="italic") 
+    
+    # Add new legend
+    plt.legend(bbox_to_anchor=(2, 0.3), loc="lower right", borderaxespad=0,
+               fontsize=18, title="Pass outcome", title_fontsize=20)
+    
+    # Adjust spacing between facets
+    plt.tight_layout(w_pad=-20, h_pad=0.5)
+    
+    # Save figure
+    plt.savefig("../Figures/passing_overall.png", dpi=300)
+        

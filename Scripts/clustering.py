@@ -97,16 +97,16 @@ def visualize_position_distribution(passing_per_90_scaled: DataFrame,
     plt.figure(figsize=(12, 8))                                                                    
     
     # Create a grid of plots
-    ax = sns.FacetGrid(cluster_position_size, col="Cluster",
-                       col_wrap=3, hue="position", palette=color_list)
+    grid = sns.FacetGrid(cluster_position_size, col="Cluster",
+                         col_wrap=3, hue="position", palette=color_list)
     
     # Map a barplot to each cluster for proportion within cluster
-    ax.map(sns.barplot, "prop_cluster", "position", order=position_order,
-           hue_order=position_order)
+    grid.map(sns.barplot, "prop_cluster", "position", order=position_order,
+             hue_order=position_order)
     
     # Specify axis labels
-    ax.set_axis_labels(x_var="% of position in cluster", 
-                       y_var="")
+    grid.set_axis_labels(x_var="% of position in cluster", 
+                         y_var="")
     
     # Specify plot style
     sns.set_style("ticks", {"axes.edgecolor": "C0C0C0"})
@@ -115,7 +115,7 @@ def visualize_position_distribution(passing_per_90_scaled: DataFrame,
     sns.despine()
 
     # Specify limit
-    ax.set(xlim=(0, 100))
+    grid.set(xlim=(0, 100))
     
     # Save figure
     plt.tight_layout()
@@ -125,18 +125,18 @@ def visualize_position_distribution(passing_per_90_scaled: DataFrame,
     plt.figure(figsize=(12, 8))                                                                    
     
     # Create a grid of plots
-    ax = sns.FacetGrid(cluster_position_size, col="Cluster",
-                       col_wrap=3, hue="position", palette=color_list)
+    grid = sns.FacetGrid(cluster_position_size, col="Cluster",
+                         col_wrap=3, hue="position", palette=color_list)
     
     # Map a barplot to each cluster for proportion of position
-    ax.map(sns.barplot, "prop_position", "position", order=position_order)
+    grid.map(sns.barplot, "prop_position", "position", order=position_order)
     
     # Specify limit
-    ax.set(xlim=(0, 100))
+    grid.set(xlim=(0, 100))
     
     # Specify axis labels
-    ax.set_axis_labels(x_var="% of all in position", 
-                       y_var="")
+    grid.set_axis_labels(x_var="% of all in position", 
+                         y_var="")
         
     # Specify plot style
     sns.set_style("ticks", {"axes.edgecolor": "C0C0C0"})
@@ -234,23 +234,23 @@ def visualize_cluster_means(passing_per_90_scaled: DataFrame,
     plt.figure(figsize=(12, 8))                                                                    
     
     # Create a heatmap of passing stats per cluster
-    ax = sns.heatmap(means.T, cmap=cmap, vmin=vmin, vmax=vmax)
+    grid = sns.heatmap(means.T, cmap=cmap, vmin=vmin, vmax=vmax)
     
     # Specfiy axis text size
-    ax.tick_params(axis="both", labelsize=12)
+    grid.tick_params(axis="both", labelsize=12)
 
     # Specify axis labels
-    ax.set_xlabel("Cluster number", fontsize=14)
-    ax.set_ylabel("", fontsize=14)
+    grid.set_xlabel("Cluster number", fontsize=14)
+    grid.set_ylabel("", fontsize=14)
 
     # Get the colorbar
-    cbar = ax.collections[0].colorbar
+    cbar = grid.collections[0].colorbar
     
     # Specify font size for the colorbar
     cbar.ax.tick_params(labelsize=12)
     
     # Set colorbar title size
-    ax.figure.axes[-1].yaxis.label.set_size(14)
+    grid.figure.axes[-1].yaxis.label.set_size(14)
     
     # Ignore fixed formatter warning
     with warnings.catch_warnings():
@@ -267,13 +267,13 @@ def visualize_cluster_means(passing_per_90_scaled: DataFrame,
     # Loop over all pass lengths
     for idx, pass_length in zip((0, 0.95, 2.1), ["Short",  "Medium", "Long"]):
         # Add passing length information
-        ax.annotate(f"{pass_length} passing", xy=(-0.4, 0.075 + (idx) * 0.33), 
-                    fontweight="bold", rotation=90, 
-                    annotation_clip=False, horizontalalignment="center",
-                    xycoords=("axes fraction", "axes fraction"))
+        grid.annotate(f"{pass_length} passing", xy=(-0.4, 0.075 + (idx) * 0.33), 
+                      fontweight="bold", rotation=90, 
+                      annotation_clip=False, horizontalalignment="center",
+                      xycoords=("axes fraction", "axes fraction"))
     
     # Draw horizontal lines to signify different pass lengths
-    ax.hlines([14, 28], *ax.get_xlim(), colors=["black"])
+    grid.hlines([14, 28], *grid.get_xlim(), colors=["black"])
     
     # Save figure
     plt.tight_layout()
@@ -314,12 +314,12 @@ def visualize_team_cluster(plot_data: DataFrame) -> None:
     plt.figure(figsize=(12, 8))                                                                    
 
     # Create a plot for the number of players per cluster and team
-    ax = sns.catplot(data=team_cluster, x="size", y="team", hue="team",
+    grid = sns.catplot(data=team_cluster, x="size", y="team", hue="team",
                      col="Cluster", dodge=False, legend=False,
                      kind='bar', col_wrap=3, sharey=False, palette=color_list)
     
     # Loop over all axes
-    for cluster_nr, ax_nr in enumerate(ax.axes):
+    for cluster_nr, ax_nr in enumerate(grid.axes):
         # Get the data from the cluster
         cluster_data = team_cluster.loc[team_cluster.Cluster.eq(cluster_nr+1)]
         
@@ -341,11 +341,11 @@ def visualize_team_cluster(plot_data: DataFrame) -> None:
     sns.despine()
     
     # Specify axis labels
-    ax.set_axis_labels(x_var="Number of players", 
-                       y_var="")
+    grid.set_axis_labels(x_var="Number of players", 
+                         y_var="")
     
     # Set axis ticks
-    ax.set_yticklabels(color="white", rotation=45, size=12)
+    grid.set_yticklabels(color="white", rotation=45, size=12)
     
     # Save figure
     plt.savefig("../Figures/barplot_cluster_team.png", dpi=300)

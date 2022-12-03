@@ -3,7 +3,7 @@
 # Author: Rasmus Säfvenberg
 
 from preprocess import preprocess_data
-from passingStats import get_passing_data
+from passingStats import get_passing_data, visualize_overall_passing
 from pca import fit_pca
 from clustering import fit_player_cluster, interactive_player_clustering, \
     fit_team_cluster, team_passing_heatmap, team_pca_plot
@@ -30,6 +30,9 @@ if __name__ == "__main__":
     # Read and preprocess the data
     merged_wide_events, minutes_played_season = preprocess_data(league=league,
                                                                 year=year)
+    
+    # Examine overall passing statistics
+    visualize_overall_passing(merged_wide_events)
     
     # Get the passing data for players, adjusted per possession and time played  
     player_passing_per_90 = get_passing_data(merged_wide_events, minutes_played_season,

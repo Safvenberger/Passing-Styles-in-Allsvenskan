@@ -9,9 +9,10 @@
 
 
 Have you ever thought about the most common event in football, the pass, and the various ways it is possible to play it? Well, look no further!
-In this repository, we conduct an unsupervised learning clustering approach to detect the various passing styles prevalent in Allsvenskan during the 2021 season.
+In this repository, we conduct an unsupervised clustering approach to detect the various passing styles prevalent in Allsvenskan during the 2021 season, both for players and teams.
 
-For a detailed post with analysis see [here](https://safvenberger.github.io/passing-styles-in-allsvenskan-2021) 
+For a detailed post with analysis see [here for player analysis](https://safvenberger.github.io/passing-styles-in-allsvenskan-2021) or 
+[here for team analysis](https://safvenberger.github.io/team-passing-styles-in-allsvenskan-2021)
 
 ## Prerequisites
 In order to replicate the results in repo, you need access to the data from [PlaymakerAI](https://twitter.com/playmakerai) and the extra file *allsvenskan, 2021-positions.csv*, which is located in the *allsvenskan, 2021* folder.
