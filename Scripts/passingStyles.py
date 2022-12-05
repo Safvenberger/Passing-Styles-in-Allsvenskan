@@ -65,8 +65,8 @@ if __name__ == "__main__":
     team_linkage = fit_team_cluster(pca_team_data, team_passing, plot_iterative_tree=True)
     
     # Create a hierarchical clustering of teams for a subset
-    fit_team_cluster(pca_team_data, team_passing, plot_iterative_tree=True,
-                     threshold=5)
+    _ = fit_team_cluster(pca_team_data, team_passing, plot_iterative_tree=True,
+                         threshold=5)
     
     # Plot a heatmap of passing differences between possession adjusted and raw counts
     team_passing_heatmap(team_passing, team_passing_raw, linkage=team_linkage,

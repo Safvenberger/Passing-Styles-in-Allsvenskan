@@ -649,7 +649,7 @@ def color_cluster(linkage: np.ndarray, team_passing: DataFrame,
                                          6, 1, 9, 10, 15, 16])]).T
     
     # Initialize the link_colors list with gray
-    link_colors = ["#BBBBBB"] * (2 * n - 1)
+    link_colors = ["#F2F2F2"] * (2 * n - 1)
 
     # Loop over all unique clusters that have been formed
     for cluster in np.unique(team_clusters[:, 1]):
@@ -939,6 +939,13 @@ def fit_team_cluster(pca_team_data: DataFrame,
                               above_threshold_color="#0077BB",
                               link_color_func=link_color_func)
     
+    # Draw vertical line for threshold if specified
+    if threshold is not None:
+        ax.vlines([threshold], ymin=0, 
+                  ymax=np.max([i.get_position()[1] for i in ax.get_yticklabels()])+5,
+                  colors=["#C0C0C0"], linestyles="dashed", label="Threshold")
+        plt.legend(bbox_to_anchor=(0.97, 1.0), loc="upper right", borderaxespad=0,
+                   fontsize=12)
     
     # Specify axis labels
     ax.set_xlabel("Distance", fontsize=14)
